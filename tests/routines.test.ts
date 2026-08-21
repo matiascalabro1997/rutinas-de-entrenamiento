@@ -295,6 +295,170 @@ describe('Rutinas', () => {
     });
   });
 
+  // ── Reordenamiento de ejercicios ─────────────────────────────────────────
+
+  describe('Reordenamiento de ejercicios', () => {
+    let routineId: number;
+    let exId1: number;
+    let exId2: number;
+    let exId3: number;
+
+    // Crea una rutina con 3 ejercicios distintos en orden A→B→C
+    // con series únicas por ejercicio para verificar que no se intercambian.
+    beforeEach(async () => {
+      const exRes = await agentA.get('/api/exercises');
+      exId1 = exRes.body[0].id; // A
+      exId2 = exRes.body[1].id; // B
+      exId3 = exRes.body[2].id; // C
+
+      const r = await agentA.post('/api/routines').send({ name: 'Orden' });
+      routineId = r.body.id;
+
+      await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { exerciseId: exId1, position: 0, sets: [{ setNumber: 1, weight: 60, reps: 10, rir: null }] },
+          { exerciseId: exId2, position: 1, sets: [{ setNumber: 1, weight: 40, reps: 12, rir: null }] },
+          { exerciseId: exId3, position: 2, sets: [{ setNumber: 1, weight: 100, reps: 8, rir: null }] },
+        ],
+      });
+    });
+
+    it('mover un ejercicio hacia arriba', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A, B, C
+
+      // B sube a posición 0 → B, A, C
+      const res = await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re1.id, exerciseId: exId2, position: 0, sets: re1.sets },
+          { id: re0.id, exerciseId: exId1, position: 1, sets: re0.sets },
+          { id: re2.id, exerciseId: exId3, position: 2, sets: re2.sets },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.exercises[0].exerciseId).toBe(exId2);
+      expect(res.body.exercises[1].exerciseId).toBe(exId1);
+      expect(res.body.exercises[2].exerciseId).toBe(exId3);
+      // Las posiciones son secuenciales y sin duplicados
+      expect(res.body.exercises.map((e: any) => e.position)).toEqual([0, 1, 2]);
+    });
+
+    it('mover un ejercicio hacia abajo', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A, B, C
+
+      // A baja a posición 1 → B, A, C
+      const res = await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re1.id, exerciseId: exId2, position: 0, sets: re1.sets },
+          { id: re0.id, exerciseId: exId1, position: 1, sets: re0.sets },
+          { id: re2.id, exerciseId: exId3, position: 2, sets: re2.sets },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.exercises[0].exerciseId).toBe(exId2);
+      expect(res.body.exercises[1].exerciseId).toBe(exId1);
+      expect(res.body.exercises[2].exerciseId).toBe(exId3);
+    });
+
+    it('mover un ejercicio varias posiciones (del último al primero)', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A, B, C
+
+      // C (posición 2) va al inicio → C, A, B
+      const res = await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re2.id, exerciseId: exId3, position: 0, sets: re2.sets },
+          { id: re0.id, exerciseId: exId1, position: 1, sets: re0.sets },
+          { id: re1.id, exerciseId: exId2, position: 2, sets: re1.sets },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.exercises[0].exerciseId).toBe(exId3);
+      expect(res.body.exercises[1].exerciseId).toBe(exId1);
+      expect(res.body.exercises[2].exerciseId).toBe(exId2);
+      expect(res.body.exercises.map((e: any) => e.position)).toEqual([0, 1, 2]);
+    });
+
+    it('el orden se mantiene exactamente tras guardar y recargar (GET)', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A, B, C
+
+      // Reordenar a B, C, A
+      await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re1.id, exerciseId: exId2, position: 0, sets: re1.sets },
+          { id: re2.id, exerciseId: exId3, position: 1, sets: re2.sets },
+          { id: re0.id, exerciseId: exId1, position: 2, sets: re0.sets },
+        ],
+      });
+
+      // Simular recarga: GET limpio desde el servidor
+      const reloaded = await agentA.get(`/api/routines/${routineId}`);
+      expect(reloaded.status).toBe(200);
+      expect(reloaded.body.exercises[0].exerciseId).toBe(exId2);
+      expect(reloaded.body.exercises[1].exerciseId).toBe(exId3);
+      expect(reloaded.body.exercises[2].exerciseId).toBe(exId1);
+      // Las series siguen asociadas al ejercicio correcto
+      expect(parseFloat(reloaded.body.exercises[0].sets[0].weight)).toBe(40);  // B
+      expect(parseFloat(reloaded.body.exercises[1].sets[0].weight)).toBe(100); // C
+      expect(parseFloat(reloaded.body.exercises[2].sets[0].weight)).toBe(60);  // A
+    });
+
+    it('duplicar la rutina conserva el orden de ejercicios', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A, B, C
+
+      // Reordenar a C, A, B
+      await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re2.id, exerciseId: exId3, position: 0, sets: re2.sets },
+          { id: re0.id, exerciseId: exId1, position: 1, sets: re0.sets },
+          { id: re1.id, exerciseId: exId2, position: 2, sets: re1.sets },
+        ],
+      });
+
+      const dup = await agentA.post(`/api/routines/${routineId}/duplicate`);
+      expect(dup.status).toBe(201);
+      expect(dup.body.exercises[0].exerciseId).toBe(exId3);
+      expect(dup.body.exercises[1].exerciseId).toBe(exId1);
+      expect(dup.body.exercises[2].exerciseId).toBe(exId2);
+      // Posiciones correctas en la copia
+      expect(dup.body.exercises.map((e: any) => e.position)).toEqual([0, 1, 2]);
+      // Serie de C (la primera) tiene peso 100
+      expect(parseFloat(dup.body.exercises[0].sets[0].weight)).toBe(100);
+    });
+
+    it('el reordenamiento no modifica ni pierde las series de cada ejercicio', async () => {
+      const cur = await agentA.get(`/api/routines/${routineId}`);
+      const [re0, re1, re2] = cur.body.exercises; // A(60kg), B(40kg), C(100kg)
+
+      // Invertir orden: C, B, A
+      const res = await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Orden',
+        exercises: [
+          { id: re2.id, exerciseId: exId3, position: 0, sets: re2.sets },
+          { id: re1.id, exerciseId: exId2, position: 1, sets: re1.sets },
+          { id: re0.id, exerciseId: exId1, position: 2, sets: re0.sets },
+        ],
+      });
+      expect(res.status).toBe(200);
+      // Cada ejercicio conserva su propio peso
+      expect(parseFloat(res.body.exercises[0].sets[0].weight)).toBe(100); // C
+      expect(parseFloat(res.body.exercises[1].sets[0].weight)).toBe(40);  // B
+      expect(parseFloat(res.body.exercises[2].sets[0].weight)).toBe(60);  // A
+      // Sin duplicados de sort_order
+      const positions = res.body.exercises.map((e: any) => e.position);
+      expect(new Set(positions).size).toBe(3);
+    });
+  });
+
   // ── Aislamiento de datos ──────────────────────────────────────────────────
 
   describe('Aislamiento entre usuarios', () => {

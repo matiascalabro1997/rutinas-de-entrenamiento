@@ -14,7 +14,10 @@ router.use(requireAuth);
 const setSchema = z.object({
   id: z.number().int().positive().optional(),
   setNumber: z.number().int().min(1),
-  weight: z.number().min(0).default(0),
+  // z.coerce.number() para aceptar tanto números como el string que devuelve
+  // PostgreSQL para columnas NUMERIC (e.g. "80.00") sin necesidad de parsear
+  // en el cliente antes de enviar de vuelta.
+  weight: z.coerce.number().min(0).default(0),
   reps: z.number().int().min(0).default(10),
   rir: z.number().int().min(0).nullable().default(null),
 });
@@ -169,91 +172,95 @@ router.put('/:id', async (req, res) => {
 
     const { name, exercises: exList } = parsed.data;
 
-    // 1. Actualizar nombre de rutina
-    await db
-      .update(routines)
-      .set({ name, updatedAt: new Date() })
-      .where(eq(routines.id, id));
+    // Todo el upsert en una sola transacción para garantizar atomicidad:
+    // si cualquier actualización de posición falla, se revierten todas.
+    await db.transaction(async (tx) => {
+      // 1. Actualizar nombre de rutina
+      await tx
+        .update(routines)
+        .set({ name, updatedAt: new Date() })
+        .where(eq(routines.id, id));
 
-    // 2. Obtener routine_exercises actuales
-    const currentREs = await db
-      .select()
-      .from(routineExercises)
-      .where(eq(routineExercises.routineId, id));
-
-    const incomingREIds = exList
-      .filter((e) => e.id !== undefined)
-      .map((e) => e.id!);
-
-    // 3. Eliminar routine_exercises que ya no están
-    for (const re of currentREs) {
-      if (!incomingREIds.includes(re.id)) {
-        await db.delete(routineExercises).where(eq(routineExercises.id, re.id));
-      }
-    }
-
-    // 4. Upsert cada routine_exercise y sus sets
-    for (const ex of exList) {
-      let reId: number;
-
-      if (ex.id) {
-        // Actualizar posición
-        await db
-          .update(routineExercises)
-          .set({ position: ex.position, updatedAt: new Date() })
-          .where(eq(routineExercises.id, ex.id));
-        reId = ex.id;
-      } else {
-        // Insertar nuevo
-        const [inserted] = await db
-          .insert(routineExercises)
-          .values({ routineId: id, exerciseId: ex.exerciseId, position: ex.position })
-          .returning();
-        reId = inserted.id;
-      }
-
-      // Sets del ejercicio
-      const currentSets = await db
+      // 2. Obtener routine_exercises actuales
+      const currentREs = await tx
         .select()
-        .from(routineSets)
-        .where(eq(routineSets.routineExerciseId, reId));
+        .from(routineExercises)
+        .where(eq(routineExercises.routineId, id));
 
-      const incomingSetIds = ex.sets
-        .filter((s) => s.id !== undefined)
-        .map((s) => s.id!);
+      const incomingREIds = exList
+        .filter((e) => e.id !== undefined)
+        .map((e) => e.id!);
 
-      // Eliminar sets que ya no están
-      for (const s of currentSets) {
-        if (!incomingSetIds.includes(s.id)) {
-          await db.delete(routineSets).where(eq(routineSets.id, s.id));
+      // 3. Eliminar routine_exercises que ya no están
+      for (const re of currentREs) {
+        if (!incomingREIds.includes(re.id)) {
+          await tx.delete(routineExercises).where(eq(routineExercises.id, re.id));
         }
       }
 
-      // Upsert sets
-      for (const set of ex.sets) {
-        const weightStr = String(set.weight ?? 0);
-        if (set.id) {
-          await db
-            .update(routineSets)
-            .set({
+      // 4. Upsert cada routine_exercise y sus sets
+      for (const ex of exList) {
+        let reId: number;
+
+        if (ex.id) {
+          // Actualizar posición
+          await tx
+            .update(routineExercises)
+            .set({ position: ex.position, updatedAt: new Date() })
+            .where(eq(routineExercises.id, ex.id));
+          reId = ex.id;
+        } else {
+          // Insertar nuevo
+          const [inserted] = await tx
+            .insert(routineExercises)
+            .values({ routineId: id, exerciseId: ex.exerciseId, position: ex.position })
+            .returning();
+          reId = inserted.id;
+        }
+
+        // Sets del ejercicio
+        const currentSets = await tx
+          .select()
+          .from(routineSets)
+          .where(eq(routineSets.routineExerciseId, reId));
+
+        const incomingSetIds = ex.sets
+          .filter((s) => s.id !== undefined)
+          .map((s) => s.id!);
+
+        // Eliminar sets que ya no están
+        for (const s of currentSets) {
+          if (!incomingSetIds.includes(s.id)) {
+            await tx.delete(routineSets).where(eq(routineSets.id, s.id));
+          }
+        }
+
+        // Upsert sets
+        for (const set of ex.sets) {
+          const weightStr = String(set.weight ?? 0);
+          if (set.id) {
+            await tx
+              .update(routineSets)
+              .set({
+                setNumber: set.setNumber,
+                weight: weightStr,
+                reps: set.reps,
+                rir: set.rir,
+                updatedAt: new Date(),
+              })
+              .where(eq(routineSets.id, set.id));
+          } else {
+            await tx.insert(routineSets).values({
+              routineExerciseId: reId,
               setNumber: set.setNumber,
               weight: weightStr,
               reps: set.reps,
               rir: set.rir,
-              updatedAt: new Date(),
-            })
-            .where(eq(routineSets.id, set.id));
-        } else {
-          await db.insert(routineSets).values({
-            routineExerciseId: reId,
-            setNumber: set.setNumber,
-            weight: weightStr,
-            reps: set.reps,
-            rir: set.rir,
-          });
+            });
+          }
         }
       }
-    }
+    });
 
     const full = await loadRoutineWithDetails(id);
     return res.json(full);
