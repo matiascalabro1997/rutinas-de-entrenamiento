@@ -92,13 +92,26 @@ export default function ExerciseCard({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {/* Chevron para colapsar/expandir — visualmente distinto de ▲▼ de reordenamiento */}
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
             className="w-8 h-8 flex items-center justify-center text-gray-400 active:text-gray-700 transition-colors"
             aria-label={collapsed ? 'Expandir' : 'Colapsar'}
           >
-            {collapsed ? '▼' : '▲'}
+            {collapsed ? (
+              /* Chevron-down: contenido oculto → tap para expandir */
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                   strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            ) : (
+              /* Chevron-up: contenido visible → tap para colapsar */
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                   strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            )}
           </button>
           <button
             type="button"
