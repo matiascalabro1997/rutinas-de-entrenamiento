@@ -1,0 +1,58 @@
+STOP. My development user and routines have been deleted AGAIN after the latest change.
+
+This is now a critical data-safety issue.
+
+Do NOT:
+- run tests;
+- run cleanDb();
+- run seeds;
+- run migrations;
+- reset the database;
+- delete any data;
+- recreate the database;
+- modify existing data.
+
+First investigate only.
+
+I need you to determine exactly how my development data was deleted this time.
+
+The previous protection was not sufficient. We need to make the test environment physically separate from the development database, not just rely on NODE_ENV.
+
+Audit the entire project for every operation that can modify or delete database data, including:
+- cleanDb()
+- DELETE queries
+- DROP/TRUNCATE operations
+- seed scripts
+- migration scripts
+- test setup
+- test teardown
+- database reset commands
+- startup scripts
+- development scripts
+- any Agent/dev workflow commands that interact with PostgreSQL
+
+Then inspect the current PostgreSQL connection configuration and determine whether:
+1. development and tests use the same DATABASE_URL;
+2. tests have their own database;
+3. seeds or migrations can run automatically during development startup;
+4. any test command can still access the development database.
+
+IMPORTANT:
+The correct solution should be that tests use a completely separate test database/database URL.
+
+Do NOT solve this only by checking NODE_ENV.
+
+I want a hard safety mechanism:
+- If tests are pointed at the development/production database, tests must refuse to run.
+- cleanDb() must refuse to run unless it is connected to an explicitly configured TEST_DATABASE_URL.
+- Development startup must never execute destructive test setup.
+- Production must never be accessible from test commands.
+- Seeds should only run when explicitly requested, never automatically as part of starting the app.
+- If possible, use a separate PostgreSQL database for tests.
+
+For now, only investigate and report:
+1. what deleted the data this time;
+2. whether development and test currently share the same database;
+3. what exact changes are required to make this impossible in the future.
+
+Do not make destructive changes until I approve the proposed fix.
