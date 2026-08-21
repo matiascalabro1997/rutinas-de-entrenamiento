@@ -1,0 +1,183 @@
+La propuesta de arquitectura está aprobada con algunos ajustes.
+
+Vamos a desarrollar la aplicación por fases. No quiero implementar todas las funcionalidades de una vez.
+
+Antes de comenzar, tené en cuenta estas decisiones:
+
+1. La aplicación será inicialmente una web app responsive/mobile-first.
+
+2. La separación entre ROUTINES y WORKOUTS debe mantenerse estrictamente.
+
+3. Una rutina representa una plantilla para futuros entrenamientos.
+
+4. Un workout representa una instancia histórica independiente.
+
+5. Cuando comienza un workout basado en una rutina, debe generarse un snapshot de la rutina. Los cambios posteriores en la rutina nunca deben modificar ese workout.
+
+6. La fecha del workout será la fecha en que fue creado/iniciado originalmente y nunca cambiará por posteriores ediciones.
+
+7. Cada serie de un workout se almacenará individualmente con:
+   - peso
+   - repeticiones
+   - RIR
+   - estado de completada/no completada
+
+8. Los ejercicios con peso = 0 serán considerados ejercicios de peso corporal/libres y sus estadísticas futuras se basarán en repeticiones.
+
+9. El sistema debe permitir modificar las rutinas y que esos cambios se reflejen en futuros entrenamientos.
+
+10. Para el MVP, cada alumno tendrá sus propias rutinas. No implementaremos todavía templates de rutinas compartidas entre múltiples alumnos.
+
+11. El sistema profesor/alumno se implementará en una fase posterior.
+
+12. NO implementaremos todavía un sistema offline completo basado en IndexedDB + cola de sincronización. Para la primera versión quiero guardado automático en servidor y una estrategia sencilla de recuperación. Dejemos la arquitectura preparada para agregar offline posteriormente.
+
+13. NO implementaremos todavía audit_events, versionado formal de rutinas ni sincronización en tiempo real.
+
+14. Las estadísticas se implementarán posteriormente. No las construyas todavía.
+
+15. El progreso porcentual futuro será inicialmente simple:
+    - ejercicios con peso > 0: comparar mejor peso actual contra mejor peso inicial registrado;
+    - ejercicios con peso = 0: comparar mejores repeticiones actuales contra mejores repeticiones iniciales.
+    La fórmula podrá modificarse posteriormente.
+
+16. El volumen se calculará posteriormente a partir de los datos individuales de las series. No es necesario mostrarlo todavía.
+
+Ahora quiero que IMPLEMENTES ÚNICAMENTE LA FASE 1.
+
+## FASE 1 — FUNDACIÓN + RUTINAS
+
+Implementá:
+
+### Autenticación
+
+- registro
+- login
+- logout
+- sesión persistente
+- protección de rutas
+
+Por ahora todos los usuarios registrados serán alumnos.
+
+No implementar todavía profesores.
+
+### Base de datos
+
+Implementá solamente las tablas/entidades necesarias para:
+
+- users
+- user_profiles
+- muscle_groups
+- exercises
+- routines
+- routine_exercises
+- routine_sets
+
+Utilizá PostgreSQL + Drizzle ORM.
+
+Cargá los 8 grupos musculares iniciales:
+
+- Piernas
+- Hombros
+- Bíceps
+- Tríceps
+- Espalda
+- Pecho
+- Abdominales
+- Ejercicio aeróbico
+
+Creá también algunos ejercicios iniciales de ejemplo para poder probar la aplicación.
+
+### Rutinas
+
+El usuario debe poder:
+
+- ver sus rutinas;
+- crear una rutina;
+- ponerle nombre;
+- agregar ejercicios;
+- seleccionar grupo muscular;
+- configurar series;
+- configurar repeticiones;
+- configurar peso;
+- configurar RIR objetivo opcional;
+- reordenar ejercicios;
+- editar ejercicios;
+- agregar/eliminar series;
+- eliminar ejercicios;
+- duplicar una rutina;
+- archivar una rutina.
+
+Los ejercicios deben poder seleccionarse de un catálogo y también debe existir una forma sencilla de crear un ejercicio personalizado.
+
+### UX
+
+La aplicación debe ser mobile-first.
+
+Quiero una interfaz limpia y moderna.
+
+La pantalla de creación/edición de rutina debe permitir ver la rutina completa.
+
+Cada ejercicio debe aparecer como una tarjeta.
+
+Las series deben aparecer individualmente.
+
+Los controles de números deben utilizar botones + y - cuando corresponda.
+
+El peso debe modificarse de 2,5 kg en 2,5 kg.
+
+Las repeticiones deben modificarse de 1 en 1.
+
+El RIR debe modificarse de 1 en 1.
+
+También debe existir edición manual.
+
+### Importante
+
+NO implementes todavía:
+
+- entrenamiento activo;
+- historial;
+- estadísticas;
+- profesor/alumnos;
+- offline completo;
+- notificaciones;
+- pagos;
+- IA;
+- App Store;
+- Apple Health;
+- funcionalidades sociales.
+
+Quiero que la Fase 1 quede limpia y estable antes de continuar.
+
+### Testing
+
+Implementá tests básicos para:
+
+- registro/login;
+- autorización de usuario;
+- creación de rutina;
+- creación de ejercicios;
+- creación de series;
+- edición de rutina;
+- duplicación de rutina;
+- archivado de rutina;
+- aislamiento de datos entre usuarios.
+
+También verificá que un usuario no pueda acceder ni modificar rutinas pertenecientes a otro usuario manipulando IDs desde el cliente.
+
+### Al finalizar
+
+No agregues funcionalidades adicionales.
+
+Mostrame:
+
+1. qué implementaste;
+2. estructura de archivos;
+3. esquema de base de datos;
+4. endpoints/API creados;
+5. tests creados;
+6. cómo puedo probar la Fase 1;
+7. cualquier problema o decisión que requiera mi aprobación.
+
+Después esperá mis instrucciones antes de comenzar la Fase 2.

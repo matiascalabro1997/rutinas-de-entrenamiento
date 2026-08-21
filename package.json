@@ -1,0 +1,48 @@
+{
+  "name": "fitness-tracker",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"tsx watch server/index.ts\" \"vite --port 5000 --host 0.0.0.0 --config client/vite.config.ts\"",
+    "build": "vite build --config client/vite.config.ts",
+    "start": "node dist/server/index.js",
+    "test": "vitest run --config vitest.config.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx server/db/seed.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.17.9",
+    "bcryptjs": "^2.4.3",
+    "concurrently": "^8.2.2",
+    "connect-pg-simple": "^9.0.1",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.29.0",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "pg": "^8.11.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/express-session": "^1.17.10",
+    "@types/pg": "^8.10.9",
+    "@types/react": "^18.2.47",
+    "@types/react-dom": "^18.2.18",
+    "@types/supertest": "^6.0.2",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "drizzle-kit": "^0.20.7",
+    "postcss": "^8.4.33",
+    "supertest": "^6.3.4",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11",
+    "vitest": "^1.2.0"
+  }
+}

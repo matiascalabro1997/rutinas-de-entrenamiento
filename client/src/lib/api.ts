@@ -1,0 +1,135 @@
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const res = await fetch(path, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Error de red' }));
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export const api = {
+  auth: {
+    me: () => request<{ id: number; email: string; displayName: string | null }>('/api/auth/me'),
+    login: (email: string, password: string) =>
+      request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    register: (email: string, password: string, displayName?: string) =>
+      request('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, displayName }),
+      }),
+    logout: () => request('/api/auth/logout', { method: 'POST' }),
+  },
+
+  muscleGroups: {
+    list: () => request<MuscleGroup[]>('/api/muscle-groups'),
+  },
+
+  exercises: {
+    list: () => request<Exercise[]>('/api/exercises'),
+    create: (data: { name: string; muscleGroupId: number; isBodyweight: boolean }) =>
+      request<Exercise>('/api/exercises', { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  routines: {
+    list: () => request<RoutineSummary[]>('/api/routines'),
+    get: (id: number) => request<RoutineFull>(`/api/routines/${id}`),
+    create: (data: { name: string }) =>
+      request<RoutineFull>('/api/routines', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: UpsertRoutinePayload) =>
+      request<RoutineFull>(`/api/routines/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    duplicate: (id: number) =>
+      request<RoutineFull>(`/api/routines/${id}/duplicate`, { method: 'POST' }),
+    archive: (id: number) =>
+      request<RoutineSummary>(`/api/routines/${id}/archive`, { method: 'PATCH' }),
+    delete: (id: number) =>
+      request<{ ok: boolean }>(`/api/routines/${id}`, { method: 'DELETE' }),
+  },
+};
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface MuscleGroup {
+  id: number;
+  name: string;
+}
+
+export interface Exercise {
+  id: number;
+  name: string;
+  muscleGroupId: number;
+  muscleGroupName: string;
+  isBodyweight: boolean;
+  isCustom: boolean;
+}
+
+export interface RoutineSummary {
+  id: number;
+  name: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  exerciseCount: number;
+}
+
+export interface RoutineSet {
+  id: number;
+  setNumber: number;
+  weight: string;
+  reps: number;
+  rir: number | null;
+}
+
+export interface RoutineExerciseFull {
+  id: number;
+  routineId: number;
+  exerciseId: number;
+  exerciseName: string;
+  muscleGroupId: number;
+  muscleGroupName: string;
+  isBodyweight: boolean;
+  position: number;
+  sets: RoutineSet[];
+}
+
+export interface RoutineFull {
+  id: number;
+  name: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  exercises: RoutineExerciseFull[];
+}
+
+export interface UpsertSetPayload {
+  id?: number;
+  setNumber: number;
+  weight: number;
+  reps: number;
+  rir: number | null;
+}
+
+export interface UpsertExercisePayload {
+  id?: number;
+  exerciseId: number;
+  position: number;
+  sets: UpsertSetPayload[];
+}
+
+export interface UpsertRoutinePayload {
+  name: string;
+  exercises: UpsertExercisePayload[];
+}
