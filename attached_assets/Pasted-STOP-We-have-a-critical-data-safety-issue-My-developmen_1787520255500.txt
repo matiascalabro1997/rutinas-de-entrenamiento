@@ -1,0 +1,64 @@
+STOP. We have a critical data-safety issue.
+
+My development user and routines were deleted AGAIN after the latest change. This happened even though we previously added a NODE_ENV=test guard to cleanDb().
+
+DO NOT make any changes yet.
+DO NOT run tests.
+DO NOT run cleanDb().
+DO NOT run seeds.
+DO NOT run migrations.
+DO NOT reset or modify the database.
+DO NOT delete any data.
+
+First, investigate only.
+
+I need you to determine exactly how my development data could have been deleted during the latest change.
+
+Audit the entire project for every operation that can modify or delete database data, including:
+
+- cleanDb()
+- DELETE queries
+- DROP/TRUNCATE operations
+- seed scripts
+- migration scripts
+- test setup and teardown
+- startup scripts
+- development scripts
+- test commands
+- database reset commands
+- Replit workflows
+- any automatic database initialization
+
+Then inspect the PostgreSQL configuration and determine:
+
+1. What DATABASE_URL is used by the development app?
+2. What DATABASE_URL is used by tests?
+3. Are development and tests currently using the same PostgreSQL database?
+4. Can any test command access the development database?
+5. Can any startup command automatically reset, seed, migrate, or delete data?
+6. What exactly caused the latest deletion?
+
+The previous NODE_ENV guard is NOT sufficient.
+
+The final architecture must use a completely separate database for tests.
+
+I want a hard safety mechanism where:
+
+- Tests require an explicitly configured TEST_DATABASE_URL.
+- cleanDb() refuses to execute unless it is connected to the test database.
+- Tests fail immediately if TEST_DATABASE_URL is missing.
+- Tests fail immediately if TEST_DATABASE_URL points to the development or production database.
+- Development startup can never execute destructive test setup.
+- Seeds are never destructive or automatic unless explicitly requested.
+- Production can never be accessed by test commands.
+
+For now, DO NOT implement the fix.
+
+Only report:
+
+A. The exact cause of the latest deletion.
+B. Whether development and testing currently share a database.
+C. All potentially dangerous database operations you found.
+D. The exact changes you recommend to make this impossible in the future.
+
+Wait for my approval before changing anything.
