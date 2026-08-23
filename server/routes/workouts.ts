@@ -96,7 +96,7 @@ router.post('/', async (req, res) => {
       const [existing] = await tx
         .select({ id: workouts.id })
         .from(workouts)
-        .where(and(eq(workouts.userId, userId), eq(workouts.status, 'active')))
+        .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
         .limit(1);
       if (existing) throw new ActiveWorkoutExistsError();
 
@@ -187,7 +187,7 @@ router.get('/active', async (req, res) => {
     const [activeWorkout] = await db
       .select({ id: workouts.id })
       .from(workouts)
-      .where(and(eq(workouts.userId, userId), eq(workouts.status, 'active')))
+      .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
       .limit(1);
 
     if (!activeWorkout) return res.json(null);
@@ -254,7 +254,7 @@ router.put('/:id', async (req, res) => {
         .for('update')
         .limit(1);
       if (!workout) throw new Error('WORKOUT_NOT_FOUND');
-      if (workout.status !== 'active') throw new Error('WORKOUT_COMPLETED');
+      if (workout.status !== 'in_progress') throw new Error('WORKOUT_COMPLETED');
       if (workout.version !== parsed.data.version) throw new Error('WORKOUT_VERSION_CONFLICT');
       const mappings: Array<{ clientId: string; id: number }> = [];
 
@@ -377,7 +377,7 @@ router.post('/:id/complete', async (req, res) => {
         .for('update')
         .limit(1);
       if (!workout) throw new Error('WORKOUT_NOT_FOUND');
-      if (workout.status !== 'active') throw new Error('WORKOUT_COMPLETED');
+      if (workout.status !== 'in_progress') throw new Error('WORKOUT_COMPLETED');
 
       const now = new Date();
       await tx

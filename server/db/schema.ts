@@ -129,7 +129,7 @@ export const workouts = pgTable(
       .notNull(),
     routineId: integer('routine_id').references(() => routines.id, { onDelete: 'set null' }),
     name: varchar('name', { length: 255 }).notNull(),
-    status: varchar('status', { length: 20 }).notNull().default('active'),
+    status: varchar('status', { length: 20 }).notNull().default('in_progress'),
     version: integer('version').notNull().default(1),
     startedAt: timestamp('started_at').defaultNow().notNull(),
     completedAt: timestamp('completed_at'),
@@ -140,7 +140,7 @@ export const workouts = pgTable(
     userStatusIdx: index('workouts_user_status_idx').on(t.userId, t.status),
     oneActiveWorkoutPerUser: uniqueIndex('workouts_one_active_per_user_idx')
       .on(t.userId)
-      .where(sql`${t.status} = 'active'`),
+      .where(sql`${t.status} = 'in_progress'`),
   }),
 );
 

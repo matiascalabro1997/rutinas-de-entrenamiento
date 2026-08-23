@@ -175,7 +175,7 @@ export interface WorkoutFull {
   id: number;
   routineId: number | null;
   name: string;
-  status: 'active' | 'completed';
+  status: 'in_progress' | 'completed';
   version: number;
   startedAt: string;
   completedAt: string | null;

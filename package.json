@@ -8,6 +8,7 @@
     "test": "env -u DATABASE_URL NODE_ENV=test vitest run --config vitest.config.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx server/db/seed.ts",
+    "db:migrate:workouts": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/migrate-workouts.sql",
     "db:setup:test": "env -u DATABASE_URL NODE_ENV=test drizzle-kit push --config drizzle.config.test.ts && env -u DATABASE_URL NODE_ENV=test tsx server/db/seed.ts"
   },
   "dependencies": {

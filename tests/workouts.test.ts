@@ -1,6 +1,8 @@
+import { readFile } from 'node:fs/promises';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../server/index';
+import { pool } from '../server/db/index';
 import { cleanDb } from './setup';
 
 function makeAgent(email: string, password = 'password123') {
@@ -63,7 +65,7 @@ describe('Entrenamientos activos', () => {
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
 
     expect(started.status).toBe(201);
-    expect(started.body.status).toBe('active');
+    expect(started.body.status).toBe('in_progress');
     expect(started.body.name).toBe('Rutina de entrenamiento');
     expect(started.body.exercises).toHaveLength(1);
     expect(started.body.exercises[0].sets).toHaveLength(2);
@@ -194,7 +196,31 @@ describe('Entrenamientos activos', () => {
     const active = await newSession.get('/api/workouts/active');
     expect(active.status).toBe(200);
     expect(active.body.id).toBe(started.body.id);
-    expect(active.body.status).toBe('active');
+    expect(active.body.status).toBe('in_progress');
+  });
+
+  it('actualiza sesiones heredadas con estado active sin perder la recuperación', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+
+    await pool.query('DROP INDEX IF EXISTS workouts_one_active_per_user_idx');
+    await pool.query("UPDATE workouts SET status = 'active' WHERE id = $1", [started.body.id]);
+    await pool.query("ALTER TABLE workouts ALTER COLUMN status SET DEFAULT 'active'");
+    await pool.query(
+      "CREATE UNIQUE INDEX workouts_one_active_per_user_idx ON workouts (user_id) WHERE status = 'active'",
+    );
+
+    const migration = await readFile('scripts/migrate-workouts.sql', 'utf8');
+    await pool.query(migration);
+
+    const resumed = await agentA.get('/api/workouts/active');
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.id).toBe(started.body.id);
+    expect(resumed.body.status).toBe('in_progress');
+
+    const completed = await agentA.post(`/api/workouts/${started.body.id}/complete`);
+    expect(completed.status).toBe(200);
+    expect(completed.body.status).toBe('completed');
   });
 
   it('finaliza el entrenamiento, conserva sus fechas y permite iniciar uno nuevo', async () => {
@@ -244,7 +270,7 @@ describe('Entrenamientos activos', () => {
 
     const untouched = await agentA.get(`/api/workouts/${workout.id}`);
     expect(untouched.status).toBe(200);
-    expect(untouched.body.status).toBe('active');
+    expect(untouched.body.status).toBe('in_progress');
     expect(untouched.body.exercises[0].sets).toHaveLength(2);
   });
 

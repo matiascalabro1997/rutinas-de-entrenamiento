@@ -85,33 +85,29 @@ export default function RoutinesPage() {
 
     return (
       <div className="card relative overflow-visible">
-        <button
-          type="button"
-          onClick={() => navigate(`/routines/${routine.id}`)}
-          className="w-full text-left p-4"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-3 p-4">
+          <button
+            type="button"
+            onClick={() => navigate(`/routines/${routine.id}`)}
+            className="min-w-0 flex-1 text-left"
+          >
+            <div className="min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{routine.name}</h3>
               <p className="text-xs text-gray-400 mt-1">
                 {routine.exerciseCount} ejercicio{routine.exerciseCount !== 1 ? 's' : ''} ·{' '}
                 {formatDate(routine.updatedAt)}
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActionMenuId(isMenuOpen ? null : routine.id);
-              }}
-              className="w-8 h-8 flex items-center justify-center text-gray-400 rounded-full active:bg-gray-100 flex-shrink-0"
-              aria-label="Opciones"
-            >
-              •••
-            </button>
-          </div>
-        </button>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActionMenuId(isMenuOpen ? null : routine.id)}
+            className="w-8 h-8 flex items-center justify-center text-gray-400 rounded-full active:bg-gray-100 flex-shrink-0"
+            aria-label="Opciones"
+          >
+            •••
+          </button>
+        </div>
 
         {!routine.archivedAt && !activeWorkout && (
           <div className="px-4 pb-4">

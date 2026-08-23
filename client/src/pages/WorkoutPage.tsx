@@ -149,7 +149,7 @@ export default function WorkoutPage() {
         try {
           const refreshed = await api.workouts.get(workoutId);
           queryClient.setQueryData(['workouts', workoutId], refreshed);
-          if (refreshed.status !== 'active') {
+          if (refreshed.status !== 'in_progress') {
             savedRevisionRef.current = changeRevisionRef.current;
             setSaveError('Este entrenamiento fue finalizado en otra sesión.');
             setSaveStatus('error');
@@ -307,7 +307,7 @@ export default function WorkoutPage() {
         try {
           const refreshed = await api.workouts.get(workoutId);
           queryClient.setQueryData(['workouts', workoutId], refreshed);
-          if (refreshed.status !== 'active') {
+          if (refreshed.status !== 'in_progress') {
             setFinishError('Este entrenamiento fue finalizado en otra sesión.');
             return;
           }
@@ -367,7 +367,7 @@ export default function WorkoutPage() {
   }
 
   const workout = workoutQuery.data;
-  if (workout.status !== 'active') {
+  if (workout.status !== 'in_progress') {
     return (
       <main className="min-h-screen bg-gray-50 px-5 py-16">
         <div className="mx-auto max-w-sm rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
