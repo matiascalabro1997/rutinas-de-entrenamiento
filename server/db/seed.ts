@@ -1,8 +1,14 @@
-import { pool, db } from './index';
+import { pool, db, verifyTestDatabaseIdentity } from './index';
 import { muscleGroups, exercises } from './schema';
 import { eq } from 'drizzle-orm';
 
 async function seed() {
+  // El seed de tests solo puede tocar la base aislada. El comando de desarrollo
+  // conserva su comportamiento explícito actual y no se ejecuta automáticamente.
+  if (process.env.NODE_ENV === 'test') {
+    await verifyTestDatabaseIdentity();
+  }
+
   console.log('Seeding database...');
 
   // ── Grupos musculares ────────────────────────────────────────────────────────

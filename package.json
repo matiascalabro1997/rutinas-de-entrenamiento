@@ -5,9 +5,10 @@
     "dev": "concurrently \"tsx watch server/index.ts\" \"vite --port 5000 --host 0.0.0.0 --config client/vite.config.ts\"",
     "build": "vite build --config client/vite.config.ts",
     "start": "node dist/server/index.js",
-    "test": "NODE_ENV=test vitest run --config vitest.config.ts",
+    "test": "env -u DATABASE_URL NODE_ENV=test vitest run --config vitest.config.ts",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx server/db/seed.ts"
+    "db:seed": "tsx server/db/seed.ts",
+    "db:setup:test": "env -u DATABASE_URL NODE_ENV=test drizzle-kit push --config drizzle.config.test.ts && env -u DATABASE_URL NODE_ENV=test tsx server/db/seed.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.9",
