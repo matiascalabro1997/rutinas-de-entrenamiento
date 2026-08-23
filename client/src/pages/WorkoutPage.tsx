@@ -81,6 +81,15 @@ function Status({ status, error }: { status: SaveStatus; error: string | null })
   return <span className="text-xs font-medium text-gray-400">Sin cambios</span>;
 }
 
+function SetMetricField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-1.5">
+      <span className="text-sm font-semibold text-gray-700">{label}</span>
+      {children}
+    </div>
+  );
+}
+
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -430,35 +439,50 @@ export default function WorkoutPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                     {exercise.sets.filter((set) => set.completed).length}/{exercise.sets.length} realizadas
                   </p>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    Hecha
-                  </span>
                 </div>
                 {exercise.sets.map((set, setIndex) => (
                   <div
                     key={set.id ?? set.clientId ?? `new-${setIndex}`}
-                    className={`border-b border-gray-50 py-3 last:border-0 ${set.completed ? 'bg-emerald-50/50' : ''}`}
+                    className={`border-b border-gray-100 py-3 last:border-0 ${set.completed ? 'bg-emerald-50/60' : ''}`}
                   >
-                    <div className="grid grid-cols-[2rem_1fr_1fr_1fr_3.75rem] items-center gap-2">
-                      <span className="text-center text-sm font-bold text-gray-400">{set.setNumber}</span>
-                      <div className="flex justify-center">
-                        {exercise.isBodyweight ? <span className="text-xs font-medium text-gray-400">Peso corporal</span> : <NumericInput value={set.weight} onChange={(value) => updateSet(exerciseIndex, setIndex, { weight: value })} step={2.5} decimals={1} max={999.5} />}
-                      </div>
-                      <div className="flex justify-center"><NumericInput value={set.reps} onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })} max={999} /></div>
-                      <div className="flex justify-center"><NumericInput value={set.rir ?? 0} onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })} max={10} /></div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-gray-800">Serie {set.setNumber}</p>
                       <button
                         type="button"
                         onClick={() => updateSet(exerciseIndex, setIndex, { completed: !set.completed })}
-                        className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors ${
+                        className={`flex min-h-11 items-center gap-2 rounded-xl border-2 px-3 text-sm font-bold transition-colors active:scale-[0.98] ${
                           set.completed
                             ? 'border-emerald-600 bg-emerald-600 text-white'
-                            : 'border-gray-300 bg-white text-transparent active:border-emerald-500'
+                            : 'border-gray-300 bg-white text-gray-700 active:border-emerald-500 active:text-emerald-700'
                         }`}
                         aria-label={`${set.completed ? 'Desmarcar' : 'Marcar'} serie ${set.setNumber} como realizada`}
                         aria-pressed={set.completed}
                       >
-                        ✓
+                        <span
+                          aria-hidden="true"
+                          className={`flex h-6 w-6 items-center justify-center rounded-full border-2 text-base leading-none ${
+                            set.completed ? 'border-white bg-white text-emerald-700' : 'border-gray-400 text-transparent'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        {set.completed ? 'Realizada' : 'Marcar realizada'}
                       </button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <SetMetricField label="Peso">
+                        {exercise.isBodyweight ? (
+                          <span className="text-sm font-medium text-gray-500">Peso corporal</span>
+                        ) : (
+                          <NumericInput value={set.weight} onChange={(value) => updateSet(exerciseIndex, setIndex, { weight: value })} step={2.5} decimals={1} max={999.5} />
+                        )}
+                      </SetMetricField>
+                      <SetMetricField label="Reps">
+                        <NumericInput value={set.reps} onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })} max={999} />
+                      </SetMetricField>
+                      <SetMetricField label="RIR">
+                        <NumericInput value={set.rir ?? 0} onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })} max={10} />
+                      </SetMetricField>
                     </div>
                     <div className="mt-1 flex justify-end">
                       <button type="button" onClick={() => removeSet(exerciseIndex, setIndex)} disabled={exercise.sets.length <= 1} className="px-2 text-xs text-gray-300 transition-colors active:text-red-500 disabled:opacity-20" aria-label={`Eliminar serie ${set.setNumber}`}>Eliminar</button>
