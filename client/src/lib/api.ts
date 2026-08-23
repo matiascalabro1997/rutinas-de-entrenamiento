@@ -13,7 +13,9 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: 'Error de red' }));
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+    const error = new Error(body.error ?? `HTTP ${res.status}`) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
 
   return res.json();
@@ -57,6 +59,22 @@ export const api = {
       request<RoutineSummary>(`/api/routines/${id}/archive`, { method: 'PATCH' }),
     delete: (id: number) =>
       request<{ ok: boolean }>(`/api/routines/${id}`, { method: 'DELETE' }),
+  },
+
+  workouts: {
+    start: (routineId: number) =>
+      request<WorkoutFull>('/api/workouts', {
+        method: 'POST',
+        body: JSON.stringify({ routineId }),
+      }),
+    active: () => request<WorkoutFull | null>('/api/workouts/active'),
+    get: (id: number) => request<WorkoutFull>(`/api/workouts/${id}`),
+    update: (id: number, data: UpsertWorkoutPayload) =>
+      request<WorkoutSaveResult>(`/api/workouts/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    finish: (id: number) => request<WorkoutFull>(`/api/workouts/${id}/complete`, { method: 'POST' }),
   },
 };
 
@@ -132,4 +150,66 @@ export interface UpsertExercisePayload {
 export interface UpsertRoutinePayload {
   name: string;
   exercises: UpsertExercisePayload[];
+}
+
+export interface WorkoutSet {
+  id: number;
+  setNumber: number;
+  weight: string;
+  reps: number;
+  rir: number | null;
+}
+
+export interface WorkoutExerciseFull {
+  id: number;
+  workoutId: number;
+  exerciseId: number | null;
+  exerciseName: string;
+  muscleGroupName: string;
+  isBodyweight: boolean;
+  position: number;
+  sets: WorkoutSet[];
+}
+
+export interface WorkoutFull {
+  id: number;
+  routineId: number | null;
+  name: string;
+  status: 'active' | 'completed';
+  version: number;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  exercises: WorkoutExerciseFull[];
+  setIdMappings?: WorkoutSetIdMapping[];
+}
+
+export interface WorkoutSetIdMapping {
+  clientId: string;
+  id: number;
+}
+
+export interface WorkoutSaveResult {
+  version: number;
+  setIdMappings: WorkoutSetIdMapping[];
+}
+
+export interface UpsertWorkoutSetPayload {
+  id?: number;
+  clientId?: string;
+  setNumber: number;
+  weight: number;
+  reps: number;
+  rir: number | null;
+}
+
+export interface UpsertWorkoutExercisePayload {
+  id: number;
+  sets: UpsertWorkoutSetPayload[];
+}
+
+export interface UpsertWorkoutPayload {
+  version: number;
+  exercises: UpsertWorkoutExercisePayload[];
 }

@@ -12,10 +12,15 @@ export default function RoutinesPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [actionMenuId, setActionMenuId] = useState<number | null>(null);
+  const [workoutError, setWorkoutError] = useState<string | null>(null);
 
   const { data: routines = [], isLoading } = useQuery({
     queryKey: ['routines'],
     queryFn: api.routines.list,
+  });
+  const { data: activeWorkout } = useQuery({
+    queryKey: ['workouts', 'active'],
+    queryFn: api.workouts.active,
   });
 
   const createMutation = useMutation({
@@ -39,6 +44,19 @@ export default function RoutinesPage() {
   const deleteMutation = useMutation({
     mutationFn: api.routines.delete,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['routines'] }),
+  });
+  const startWorkoutMutation = useMutation({
+    mutationFn: api.workouts.start,
+    onSuccess: (workout) => {
+      setWorkoutError(null);
+      queryClient.setQueryData(['workouts', 'active'], workout);
+      queryClient.setQueryData(['workouts', workout.id], workout);
+      navigate(`/workouts/${workout.id}`);
+    },
+    onError: (error) => {
+      setWorkoutError(error instanceof Error ? error.message : 'No se pudo iniciar el entrenamiento');
+      void queryClient.invalidateQueries({ queryKey: ['workouts', 'active'] });
+    },
   });
 
   async function handleLogout() {
@@ -94,6 +112,22 @@ export default function RoutinesPage() {
             </button>
           </div>
         </button>
+
+        {!routine.archivedAt && !activeWorkout && (
+          <div className="px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setWorkoutError(null);
+                startWorkoutMutation.mutate(routine.id);
+              }}
+              disabled={startWorkoutMutation.isPending}
+              className="btn-primary w-full py-2.5 text-sm"
+            >
+              {startWorkoutMutation.isPending ? 'Iniciando...' : 'Empezar entrenamiento'}
+            </button>
+          </div>
+        )}
 
         {/* Menú de acciones */}
         {isMenuOpen && (
@@ -207,6 +241,29 @@ export default function RoutinesPage() {
             </span>
             <span className="font-semibold">Nueva rutina</span>
           </button>
+        )}
+
+        {activeWorkout && (
+          <button
+            type="button"
+            onClick={() => navigate(`/workouts/${activeWorkout.id}`)}
+            className="w-full card border-brand-100 bg-brand-50 p-4 text-left active:bg-brand-100 transition-colors"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Entrenamiento en curso</p>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate font-semibold text-gray-900">{activeWorkout.name}</h2>
+                <p className="mt-0.5 text-sm text-gray-500">Continuar donde lo dejaste</p>
+              </div>
+              <span className="btn-primary flex-shrink-0 px-3 py-2 text-sm">Continuar</span>
+            </div>
+          </button>
+        )}
+
+        {workoutError && (
+          <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {workoutError}
+          </p>
         )}
 
         {/* Lista de rutinas activas */}

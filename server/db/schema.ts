@@ -7,8 +7,9 @@ import {
   timestamp,
   numeric,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -114,12 +115,86 @@ export const routineSets = pgTable(
   }),
 );
 
+// ─── Workouts ─────────────────────────────────────────────────────────────────
+// Los entrenamientos son snapshots independientes de las rutinas. Sólo se
+// conserva routineId como referencia opcional; sus ejercicios y series nunca
+// dependen de que la rutina original siga existiendo.
+
+export const workouts = pgTable(
+  'workouts',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    routineId: integer('routine_id').references(() => routines.id, { onDelete: 'set null' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull().default('active'),
+    version: integer('version').notNull().default(1),
+    startedAt: timestamp('started_at').defaultNow().notNull(),
+    completedAt: timestamp('completed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    userStatusIdx: index('workouts_user_status_idx').on(t.userId, t.status),
+    oneActiveWorkoutPerUser: uniqueIndex('workouts_one_active_per_user_idx')
+      .on(t.userId)
+      .where(sql`${t.status} = 'active'`),
+  }),
+);
+
+export const workoutExercises = pgTable(
+  'workout_exercises',
+  {
+    id: serial('id').primaryKey(),
+    workoutId: integer('workout_id')
+      .references(() => workouts.id, { onDelete: 'cascade' })
+      .notNull(),
+    // Identificador informativo: el nombre y atributos son el snapshot real.
+    exerciseId: integer('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+    exerciseName: varchar('exercise_name', { length: 255 }).notNull(),
+    muscleGroupName: varchar('muscle_group_name', { length: 100 }).notNull(),
+    isBodyweight: boolean('is_bodyweight').default(false).notNull(),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    workoutIdx: index('workout_exercises_workout_idx').on(t.workoutId),
+  }),
+);
+
+export const workoutSets = pgTable(
+  'workout_sets',
+  {
+    id: serial('id').primaryKey(),
+    workoutExerciseId: integer('workout_exercise_id')
+      .references(() => workoutExercises.id, { onDelete: 'cascade' })
+      .notNull(),
+    setNumber: integer('set_number').notNull(),
+    weight: numeric('weight', { precision: 7, scale: 2 }).notNull().default('0'),
+    reps: integer('reps').notNull().default(10),
+    rir: integer('rir'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    exerciseIdx: index('workout_sets_exercise_idx').on(t.workoutExerciseId),
+    exerciseSetNumberIdx: uniqueIndex('workout_sets_exercise_number_idx').on(
+      t.workoutExerciseId,
+      t.setNumber,
+    ),
+  }),
+);
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, { fields: [users.id], references: [userProfiles.userId] }),
   routines: many(routines),
   exercises: many(exercises),
+  workouts: many(workouts),
 }));
 
 export const muscleGroupsRelations = relations(muscleGroups, ({ many }) => ({
@@ -147,5 +222,24 @@ export const routineSetsRelations = relations(routineSets, ({ one }) => ({
   routineExercise: one(routineExercises, {
     fields: [routineSets.routineExerciseId],
     references: [routineExercises.id],
+  }),
+}));
+
+export const workoutsRelations = relations(workouts, ({ one, many }) => ({
+  user: one(users, { fields: [workouts.userId], references: [users.id] }),
+  routine: one(routines, { fields: [workouts.routineId], references: [routines.id] }),
+  exercises: many(workoutExercises),
+}));
+
+export const workoutExercisesRelations = relations(workoutExercises, ({ one, many }) => ({
+  workout: one(workouts, { fields: [workoutExercises.workoutId], references: [workouts.id] }),
+  exercise: one(exercises, { fields: [workoutExercises.exerciseId], references: [exercises.id] }),
+  sets: many(workoutSets),
+}));
+
+export const workoutSetsRelations = relations(workoutSets, ({ one }) => ({
+  workoutExercise: one(workoutExercises, {
+    fields: [workoutSets.workoutExerciseId],
+    references: [workoutExercises.id],
   }),
 }));

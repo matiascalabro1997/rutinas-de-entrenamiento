@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RoutinesPage from './pages/RoutinesPage';
 import RoutineEditorPage from './pages/RoutineEditorPage';
+import WorkoutPage from './pages/WorkoutPage';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -64,6 +65,14 @@ export default function App() {
             element={
               <AuthGuard>
                 <RoutineEditorPage />
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/workouts/:id"
+            element={
+              <AuthGuard>
+                <WorkoutPage />
               </AuthGuard>
             }
           />

@@ -37,6 +37,9 @@ export async function cleanDb({
 
   // Limpiar tablas en orden de dependencias para evitar errores de FK.
   // En modo test se usa MemoryStore para sesiones, no es necesario borrar "session".
+  await query('DELETE FROM workout_sets');
+  await query('DELETE FROM workout_exercises');
+  await query('DELETE FROM workouts');
   await query('DELETE FROM routine_sets');
   await query('DELETE FROM routine_exercises');
   await query('DELETE FROM routines');

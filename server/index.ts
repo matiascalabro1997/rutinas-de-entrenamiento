@@ -7,6 +7,7 @@ import { pool } from './db/index';
 import authRoutes from './routes/auth';
 import routinesRoutes from './routes/routines';
 import exercisesRoutes from './routes/exercises';
+import workoutsRoutes from './routes/workouts';
 
 const PgSession = connectPgSimple(session);
 const app = express();
@@ -45,6 +46,7 @@ app.use(
 
 app.use('/api/auth', authRoutes);
 app.use('/api/routines', routinesRoutes);
+app.use('/api/workouts', workoutsRoutes);
 app.use('/api', exercisesRoutes);
 
 // ─── Serve frontend in production ─────────────────────────────────────────────

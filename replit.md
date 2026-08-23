@@ -1,4 +1,4 @@
-# Fitness Tracker — Fase 1
+# Fitness Tracker — Fase 2
 
 Aplicación web mobile-first para gestión de rutinas de entrenamiento.
 
@@ -21,6 +21,9 @@ Aplicación web mobile-first para gestión de rutinas de entrenamiento.
 - Puerto 5000: frontend (webview de Replit)
 - Puerto 3001: API backend (proxied por Vite)
 
-## Fase actual: Fase 1 — Fundación + Rutinas
-Implementa: autenticación, CRUD de rutinas, catálogo de ejercicios.
-NO implementado aún: workouts, historial, estadísticas, offline, IA, pagos.
+## Fase actual: Fase 2 — Entrenamiento activo
+Implementa: autenticación, CRUD de rutinas, catálogo de ejercicios y un único
+entrenamiento activo por usuario, guardado como snapshot independiente de la
+rutina original.
+
+NO implementado aún: historial de entrenamientos, estadísticas, offline, IA, pagos.
