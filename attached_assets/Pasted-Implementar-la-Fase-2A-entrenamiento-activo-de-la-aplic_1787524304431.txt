@@ -1,0 +1,115 @@
+Implementar la Fase 2A: entrenamiento activo de la aplicación de gimnasio.
+
+La Fase 1 ya está implementada, probada manualmente y cuenta con 49/49 tests pasando. No modificar ni romper las funcionalidades existentes.
+
+Objetivo
+
+Permitir que un alumno seleccione una rutina y comience un entrenamiento real basado en ella.
+
+Modelo de datos
+
+Incorporar únicamente las entidades necesarias para:
+
+workouts
+workout_exercises
+workout_sets
+
+Mantener estrictamente separadas las entidades routines y workouts.
+
+Al comenzar un entrenamiento:
+
+Crear un workout con estado in_progress.
+Asociarlo al usuario autenticado.
+Guardar la fecha/hora de inicio.
+Crear un snapshot de los ejercicios y series actuales de la rutina.
+A partir de ese momento, los cambios posteriores realizados sobre la rutina NO deben modificar el entrenamiento activo.
+Entrenamiento activo
+
+Crear una interfaz mobile-first donde el usuario pueda:
+
+ver todos los ejercicios;
+ver las series planificadas;
+registrar peso;
+registrar repeticiones;
+registrar RIR;
+modificar los valores;
+agregar series;
+eliminar series;
+navegar cómodamente durante el entrenamiento.
+
+Los controles numéricos deben mantener la misma lógica de la Fase 1:
+
+peso: pasos de 2,5 kg;
+repeticiones: pasos de 1;
+RIR: pasos de 1.
+Persistencia
+
+Los cambios del entrenamiento deben guardarse automáticamente en el backend.
+
+Si el usuario:
+
+recarga la página;
+cierra y vuelve a abrir la aplicación;
+vuelve a iniciar sesión;
+
+debe poder detectar que existe un entrenamiento in_progress y continuar exactamente desde donde lo dejó.
+
+Inicialmente permitir como máximo un entrenamiento in_progress por usuario.
+
+Finalización
+
+Incorporar un botón claro “Finalizar entrenamiento”.
+
+Al finalizar:
+
+cambiar status a completed;
+guardar completed_at;
+conservar permanentemente los ejercicios y series realizados;
+conservar la fecha/hora original de inicio.
+
+No implementar todavía:
+
+historial;
+estadísticas;
+gráficos;
+profesores;
+alumnos;
+offline completo con IndexedDB;
+notificaciones;
+pagos;
+IA;
+funciones sociales;
+integraciones externas.
+Seguridad
+
+Mantener el aislamiento estricto entre usuarios.
+
+Un usuario nunca debe poder:
+
+acceder al workout de otro usuario;
+modificar el workout de otro usuario;
+iniciar un workout utilizando una rutina que no le pertenece.
+
+Todas estas verificaciones deben realizarse en backend, no solamente en frontend.
+
+Tests
+
+Agregar tests para:
+
+crear workout;
+generar snapshot de rutina;
+registrar/modificar series;
+persistencia de cambios;
+recuperar workout in_progress;
+finalizar workout;
+impedir acceso entre usuarios;
+comprobar que modificar una rutina después de iniciar un workout no modifica el snapshot del workout.
+
+Muy importante: ejecutar todos los tests únicamente contra TEST_DATABASE_URL. Nunca utilizar DATABASE_URL para tests ni ejecutar ninguna operación destructiva sobre la base de desarrollo.
+
+Antes de ejecutar cualquier operación de base de datos, verificar que la configuración de tests continúa utilizando:
+fitness_tracker_test
+y
+fitness_tracker_test_runner.
+
+No implementar funcionalidades fuera de esta fase.
