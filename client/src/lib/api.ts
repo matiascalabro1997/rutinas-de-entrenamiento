@@ -109,6 +109,7 @@ export interface RoutineSet {
   weight: string;
   reps: number;
   rir: number | null;
+  completed: boolean;
 }
 
 export interface RoutineExerciseFull {
@@ -138,6 +139,7 @@ export interface UpsertSetPayload {
   weight: number;
   reps: number;
   rir: number | null;
+  completed: boolean;
 }
 
 export interface UpsertExercisePayload {

@@ -32,9 +32,13 @@ CREATE TABLE IF NOT EXISTS workout_sets (
   weight numeric(7, 2) NOT NULL DEFAULT '0',
   reps integer NOT NULL DEFAULT 10,
   rir integer,
+  completed boolean NOT NULL DEFAULT false,
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
+
+ALTER TABLE workout_sets
+  ADD COLUMN IF NOT EXISTS completed boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS workouts_user_status_idx ON workouts (user_id, status);
 CREATE INDEX IF NOT EXISTS workout_exercises_workout_idx ON workout_exercises (workout_id);

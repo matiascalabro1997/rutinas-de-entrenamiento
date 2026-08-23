@@ -1,0 +1,31 @@
+Quiero agregar una mejora importante a la experiencia de entrenamiento activo: marcar individualmente cada serie como realizada o pendiente.
+
+Actualmente cada serie permite editar peso, repeticiones y RIR, pero no existe una forma explícita de indicar si la serie fue efectivamente realizada. Esto genera confusión durante el entrenamiento.
+
+Implementar:
+
+Agregar a cada serie del snapshot de workout un estado completed booleano.
+Por defecto debe ser false.
+En la pantalla de entrenamiento activo, cada serie debe tener un control/tick claramente visible y cómodo para mobile.
+El usuario debe poder marcar y desmarcar la serie independientemente de peso, repeticiones y RIR.
+Cambiar peso/repeticiones/RIR no debe marcar automáticamente la serie como completada.
+El estado completed debe guardarse mediante el autosave existente.
+Al salir y volver a entrar al entrenamiento, las series realizadas deben seguir marcadas.
+Mantener el estado dentro del snapshot del workout y no modificar retroactivamente la rutina original.
+Al finalizar el entrenamiento, conservar qué series fueron realizadas.
+Mostrar opcionalmente progreso del ejercicio, por ejemplo 3/4 series, y progreso total del entrenamiento, por ejemplo 12/16 series.
+Mantener el comportamiento actual de múltiples entrenamientos in_progress: máximo uno por rutina y múltiples rutinas diferentes simultáneamente.
+
+Tests:
+
+Agregar tests para marcar una serie como completada.
+Desmarcarla.
+Persistencia después de guardar/recargar.
+Verificar que cambiar peso/reps/RIR no cambia completed.
+Verificar que el estado pertenece al snapshot del workout.
+Verificar aislamiento entre usuarios.
+Mantener todos los tests existentes.
+
+Seguridad: usar exclusivamente TEST_DATABASE_URL para tests. Nunca usar DATABASE_URL como fallback ni ejecutar operaciones destructivas sobre la base de desarrollo.
+
+Antes de implementar, revisá el modelo actual y elegí la modificación mínima y consistente con la arquitectura existente. No implementar todavía historial ni estadísticas.

@@ -178,6 +178,7 @@ export const workoutSets = pgTable(
     weight: numeric('weight', { precision: 7, scale: 2 }).notNull().default('0'),
     reps: integer('reps').notNull().default(10),
     rir: integer('rir'),
+    completed: boolean('completed').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

@@ -131,6 +131,81 @@ describe('Entrenamientos activos', () => {
     expect(Number(reloaded.body.exercises[0].sets[1].weight)).toBe(85);
   });
 
+  it('marca, desmarca y conserva series realizadas dentro del snapshot', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    const workout = started.body;
+    const exercise = workout.exercises[0];
+
+    expect(exercise.sets[0].completed).toBe(false);
+    const marked = await agentA.put(`/api/workouts/${workout.id}`).send({
+      version: workout.version,
+      exercises: [{
+        id: exercise.id,
+        sets: exercise.sets.map((set: any, index: number) => ({
+          id: set.id,
+          setNumber: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          rir: set.rir,
+          completed: index === 0,
+        })),
+      }],
+    });
+    expect(marked.status).toBe(200);
+
+    const deletedRoutine = await agentA.delete(`/api/routines/${routine.id}`);
+    expect(deletedRoutine.status).toBe(200);
+    const reloaded = await agentA.get(`/api/workouts/${workout.id}`);
+    expect(reloaded.body.exercises[0].sets[0].completed).toBe(true);
+    expect(reloaded.body.exercises[0].sets[1].completed).toBe(false);
+
+    const unmarked = await agentA.put(`/api/workouts/${workout.id}`).send({
+      version: reloaded.body.version,
+      exercises: [{
+        id: reloaded.body.exercises[0].id,
+        sets: reloaded.body.exercises[0].sets.map((set: any) => ({
+          id: set.id,
+          setNumber: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          rir: set.rir,
+          completed: false,
+        })),
+      }],
+    });
+    expect(unmarked.status).toBe(200);
+    const afterUnmark = await agentA.get(`/api/workouts/${workout.id}`);
+    expect(afterUnmark.body.exercises[0].sets[0].completed).toBe(false);
+  });
+
+  it('no marca una serie al cambiar peso, repeticiones o RIR', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    const workout = started.body;
+    const exercise = workout.exercises[0];
+
+    const updated = await agentA.put(`/api/workouts/${workout.id}`).send({
+      version: workout.version,
+      exercises: [{
+        id: exercise.id,
+        sets: exercise.sets.map((set: any, index: number) => ({
+          id: set.id,
+          setNumber: set.setNumber,
+          weight: index === 0 ? 95 : set.weight,
+          reps: index === 0 ? 6 : set.reps,
+          rir: index === 0 ? 1 : set.rir,
+          completed: false,
+        })),
+      }],
+    });
+    expect(updated.status).toBe(200);
+
+    const reloaded = await agentA.get(`/api/workouts/${workout.id}`);
+    expect(Number(reloaded.body.exercises[0].sets[0].weight)).toBe(95);
+    expect(reloaded.body.exercises[0].sets[0].completed).toBe(false);
+  });
+
   it('rechaza numeración de series duplicada o con saltos', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
@@ -229,12 +304,30 @@ describe('Entrenamientos activos', () => {
   it('finaliza el entrenamiento, conserva sus fechas y permite iniciar uno nuevo', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    const exercise = started.body.exercises[0];
+
+    const marked = await agentA.put(`/api/workouts/${started.body.id}`).send({
+      version: started.body.version,
+      exercises: [{
+        id: exercise.id,
+        sets: exercise.sets.map((set: any, index: number) => ({
+          id: set.id,
+          setNumber: set.setNumber,
+          weight: set.weight,
+          reps: set.reps,
+          rir: set.rir,
+          completed: index === 0,
+        })),
+      }],
+    });
+    expect(marked.status).toBe(200);
 
     const completed = await agentA.post(`/api/workouts/${started.body.id}/complete`);
     expect(completed.status).toBe(200);
     expect(completed.body.status).toBe('completed');
     expect(completed.body.startedAt).toBeTruthy();
     expect(completed.body.completedAt).toBeTruthy();
+    expect(completed.body.exercises[0].sets[0].completed).toBe(true);
 
     const active = await agentA.get('/api/workouts/active');
     expect(active.status).toBe(200);
@@ -285,7 +378,17 @@ describe('Entrenamientos activos', () => {
       (
         await agentB.put(`/api/workouts/${workout.id}`).send({
           version: workout.version,
-          exercises: [{ id: workout.exercises[0].id, sets: [] }],
+          exercises: [{
+            id: workout.exercises[0].id,
+            sets: workout.exercises[0].sets.map((set: any) => ({
+              id: set.id,
+              setNumber: set.setNumber,
+              weight: set.weight,
+              reps: set.reps,
+              rir: set.rir,
+              completed: true,
+            })),
+          }],
         })
       ).status,
     ).toBe(404);
@@ -295,6 +398,7 @@ describe('Entrenamientos activos', () => {
     expect(untouched.status).toBe(200);
     expect(untouched.body.status).toBe('in_progress');
     expect(untouched.body.exercises[0].sets).toHaveLength(2);
+    expect(untouched.body.exercises[0].sets[0].completed).toBe(false);
 
     const [recoveredA, recoveredB] = await Promise.all([
       agentA.get('/api/workouts/active'),

@@ -27,6 +27,7 @@ const setSchema = z.object({
   weight: z.coerce.number().min(0).max(999.5).default(0),
   reps: z.number().int().min(0).max(999).default(10),
   rir: z.number().int().min(0).max(10).nullable().default(null),
+  completed: z.boolean().default(false),
 });
 
 const updateWorkoutSchema = z.object({
@@ -300,6 +301,7 @@ router.put('/:id', async (req, res) => {
             weight: String(set.weight),
             reps: set.reps,
             rir: set.rir,
+            completed: set.completed,
             updatedAt: new Date(),
           };
           if (set.id) {
@@ -323,6 +325,7 @@ router.put('/:id', async (req, res) => {
                 weight: values.weight,
                 reps: values.reps,
                 rir: values.rir,
+                completed: values.completed,
               })
               .returning({ id: workoutSets.id });
             if (set.clientId) mappings.push({ clientId: set.clientId, id: created.id });

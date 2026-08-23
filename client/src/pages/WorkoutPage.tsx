@@ -16,6 +16,7 @@ type LocalSet = {
   weight: number;
   reps: number;
   rir: number | null;
+  completed: boolean;
 };
 
 type LocalExercise = {
@@ -40,6 +41,7 @@ function parseExercise(exercise: WorkoutExerciseFull): LocalExercise {
       weight: Number(set.weight) || 0,
       reps: set.reps,
       rir: set.rir,
+      completed: set.completed,
     })),
   };
 }
@@ -54,6 +56,7 @@ function payloadFrom(exercises: LocalExercise[]): UpsertWorkoutExercisePayload[]
       weight: set.weight,
       reps: set.reps,
       rir: set.rir,
+      completed: set.completed,
     })),
   }));
 }
@@ -276,6 +279,7 @@ export default function WorkoutPage() {
           weight: previous?.weight ?? 0,
           reps: previous?.reps ?? 0,
           rir: previous?.rir ?? null,
+          completed: false,
         },
       ],
     });
@@ -382,6 +386,10 @@ export default function WorkoutPage() {
   }
   const title = 'name' in workout && workout.name ? workout.name : 'Entrenamiento activo';
   const totalSets = exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const completedSets = exercises.reduce(
+    (total, exercise) => total + exercise.sets.filter((set) => set.completed).length,
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 pb-28">
@@ -402,7 +410,9 @@ export default function WorkoutPage() {
         <div className="mb-5 flex items-end justify-between">
           <div>
             <p className="text-sm text-gray-500">{exercises.length} {exercises.length === 1 ? 'ejercicio' : 'ejercicios'}</p>
-            <p className="mt-1 text-xs text-gray-400">{totalSets} series registradas</p>
+            <p className="mt-1 text-xs text-gray-400">
+              {completedSets}/{totalSets} series realizadas
+            </p>
           </div>
           <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">Entrenando</div>
         </div>
@@ -416,18 +426,43 @@ export default function WorkoutPage() {
                 {exercise.muscleGroupName && <p className="mt-0.5 text-xs text-gray-500">{exercise.muscleGroupName}</p>}
               </div>
               <div className="px-3">
-                <div className="grid grid-cols-[2rem_1fr_1fr_1fr_1.5rem] items-center gap-2 border-b border-gray-100 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  <span>Serie</span><span className="text-center">{exercise.isBodyweight ? 'Carga' : 'Peso'}</span><span className="text-center">Reps</span><span className="text-center">RIR</span><span />
+                <div className="flex items-center justify-between border-b border-gray-100 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    {exercise.sets.filter((set) => set.completed).length}/{exercise.sets.length} realizadas
+                  </p>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Hecha
+                  </span>
                 </div>
                 {exercise.sets.map((set, setIndex) => (
-                  <div key={set.id ?? set.clientId ?? `new-${setIndex}`} className="grid grid-cols-[2rem_1fr_1fr_1fr_1.5rem] items-center gap-2 border-b border-gray-50 py-3 last:border-0">
-                    <span className="text-center text-sm font-bold text-gray-400">{set.setNumber}</span>
-                    <div className="flex justify-center">
-                      {exercise.isBodyweight ? <span className="text-xs font-medium text-gray-400">Peso corporal</span> : <NumericInput value={set.weight} onChange={(value) => updateSet(exerciseIndex, setIndex, { weight: value })} step={2.5} decimals={1} max={999.5} />}
+                  <div
+                    key={set.id ?? set.clientId ?? `new-${setIndex}`}
+                    className={`border-b border-gray-50 py-3 last:border-0 ${set.completed ? 'bg-emerald-50/50' : ''}`}
+                  >
+                    <div className="grid grid-cols-[2rem_1fr_1fr_1fr_3.75rem] items-center gap-2">
+                      <span className="text-center text-sm font-bold text-gray-400">{set.setNumber}</span>
+                      <div className="flex justify-center">
+                        {exercise.isBodyweight ? <span className="text-xs font-medium text-gray-400">Peso corporal</span> : <NumericInput value={set.weight} onChange={(value) => updateSet(exerciseIndex, setIndex, { weight: value })} step={2.5} decimals={1} max={999.5} />}
+                      </div>
+                      <div className="flex justify-center"><NumericInput value={set.reps} onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })} max={999} /></div>
+                      <div className="flex justify-center"><NumericInput value={set.rir ?? 0} onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })} max={10} /></div>
+                      <button
+                        type="button"
+                        onClick={() => updateSet(exerciseIndex, setIndex, { completed: !set.completed })}
+                        className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors ${
+                          set.completed
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : 'border-gray-300 bg-white text-transparent active:border-emerald-500'
+                        }`}
+                        aria-label={`${set.completed ? 'Desmarcar' : 'Marcar'} serie ${set.setNumber} como realizada`}
+                        aria-pressed={set.completed}
+                      >
+                        ✓
+                      </button>
                     </div>
-                    <div className="flex justify-center"><NumericInput value={set.reps} onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })} max={999} /></div>
-                    <div className="flex justify-center"><NumericInput value={set.rir ?? 0} onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })} max={10} /></div>
-                    <button type="button" onClick={() => removeSet(exerciseIndex, setIndex)} disabled={exercise.sets.length <= 1} className="text-lg text-gray-300 transition-colors active:text-red-500 disabled:opacity-20" aria-label={`Eliminar serie ${set.setNumber}`}>×</button>
+                    <div className="mt-1 flex justify-end">
+                      <button type="button" onClick={() => removeSet(exerciseIndex, setIndex)} disabled={exercise.sets.length <= 1} className="px-2 text-xs text-gray-300 transition-colors active:text-red-500 disabled:opacity-20" aria-label={`Eliminar serie ${set.setNumber}`}>Eliminar</button>
+                    </div>
                   </div>
                 ))}
               </div>
