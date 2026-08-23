@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index';
 import {
@@ -96,7 +96,13 @@ router.post('/', async (req, res) => {
       const [existing] = await tx
         .select({ id: workouts.id })
         .from(workouts)
-        .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
+        .where(
+          and(
+            eq(workouts.userId, userId),
+            eq(workouts.routineId, parsed.data.routineId),
+            eq(workouts.status, 'in_progress'),
+          ),
+        )
         .limit(1);
       if (existing) throw new ActiveWorkoutExistsError();
 
@@ -173,25 +179,26 @@ router.post('/', async (req, res) => {
     return res.status(201).json(workout);
   } catch (error) {
     if (error instanceof ActiveWorkoutExistsError || isUniqueViolation(error)) {
-      return res.status(409).json({ error: 'Ya tenés un entrenamiento en curso' });
+        return res
+          .status(409)
+          .json({ error: 'Ya tenés un entrenamiento en curso para esta rutina' });
     }
     console.error('start workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-// GET /api/workouts/active — permite recuperar una sesión tras recargar o iniciar sesión.
+// GET /api/workouts/active — permite recuperar todas las sesiones pendientes tras recargar.
 router.get('/active', async (req, res) => {
   try {
     const userId = req.session.userId!;
-    const [activeWorkout] = await db
+    const activeWorkouts = await db
       .select({ id: workouts.id })
       .from(workouts)
       .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
-      .limit(1);
+      .orderBy(desc(workouts.startedAt));
 
-    if (!activeWorkout) return res.json(null);
-    return res.json(await loadWorkoutWithDetails(activeWorkout.id));
+    return res.json(await Promise.all(activeWorkouts.map((workout) => loadWorkoutWithDetails(workout.id))));
   } catch (error) {
     console.error('get active workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });

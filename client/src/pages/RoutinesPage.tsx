@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, RoutineSummary } from '../lib/api';
+import { api, RoutineSummary, WorkoutFull } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 
 export default function RoutinesPage() {
@@ -18,9 +18,9 @@ export default function RoutinesPage() {
     queryKey: ['routines'],
     queryFn: api.routines.list,
   });
-  const { data: activeWorkout } = useQuery({
-    queryKey: ['workouts', 'active'],
-    queryFn: api.workouts.active,
+  const { data: inProgressWorkouts = [] } = useQuery({
+    queryKey: ['workouts', 'in-progress'],
+    queryFn: api.workouts.inProgress,
   });
 
   const createMutation = useMutation({
@@ -49,13 +49,16 @@ export default function RoutinesPage() {
     mutationFn: api.workouts.start,
     onSuccess: (workout) => {
       setWorkoutError(null);
-      queryClient.setQueryData(['workouts', 'active'], workout);
+      queryClient.setQueryData<WorkoutFull[]>(['workouts', 'in-progress'], (current = []) => [
+        workout,
+        ...current.filter((item) => item.id !== workout.id),
+      ]);
       queryClient.setQueryData(['workouts', workout.id], workout);
       navigate(`/workouts/${workout.id}`);
     },
     onError: (error) => {
       setWorkoutError(error instanceof Error ? error.message : 'No se pudo iniciar el entrenamiento');
-      void queryClient.invalidateQueries({ queryKey: ['workouts', 'active'] });
+      void queryClient.invalidateQueries({ queryKey: ['workouts', 'in-progress'] });
     },
   });
 
@@ -72,6 +75,9 @@ export default function RoutinesPage() {
 
   const active = routines.filter((r) => !r.archivedAt);
   const archived = routines.filter((r) => r.archivedAt);
+  const routineIdsInProgress = new Set(
+    inProgressWorkouts.flatMap((workout) => (workout.routineId ? [workout.routineId] : [])),
+  );
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('es-AR', {
@@ -109,7 +115,7 @@ export default function RoutinesPage() {
           </button>
         </div>
 
-        {!routine.archivedAt && !activeWorkout && (
+        {!routine.archivedAt && !routineIdsInProgress.has(routine.id) && (
           <div className="px-4 pb-4">
             <button
               type="button"
@@ -239,21 +245,28 @@ export default function RoutinesPage() {
           </button>
         )}
 
-        {activeWorkout && (
-          <button
-            type="button"
-            onClick={() => navigate(`/workouts/${activeWorkout.id}`)}
-            className="w-full card border-brand-100 bg-brand-50 p-4 text-left active:bg-brand-100 transition-colors"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Entrenamiento en curso</p>
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate font-semibold text-gray-900">{activeWorkout.name}</h2>
-                <p className="mt-0.5 text-sm text-gray-500">Continuar donde lo dejaste</p>
-              </div>
-              <span className="btn-primary flex-shrink-0 px-3 py-2 text-sm">Continuar</span>
-            </div>
-          </button>
+        {inProgressWorkouts.length > 0 && (
+          <section className="space-y-2">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-brand-600">
+              Entrenamientos en curso
+            </p>
+            {inProgressWorkouts.map((workout) => (
+              <button
+                key={workout.id}
+                type="button"
+                onClick={() => navigate(`/workouts/${workout.id}`)}
+                className="w-full card border-brand-100 bg-brand-50 p-4 text-left active:bg-brand-100 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold text-gray-900">{workout.name}</h2>
+                    <p className="mt-0.5 text-sm text-gray-500">Continuar donde lo dejaste</p>
+                  </div>
+                  <span className="btn-primary flex-shrink-0 px-3 py-2 text-sm">Continuar</span>
+                </div>
+              </button>
+            ))}
+          </section>
         )}
 
         {workoutError && (

@@ -181,8 +181,9 @@ describe('Entrenamientos activos', () => {
 
     const resumed = await agentA.get('/api/workouts/active');
     expect(resumed.status).toBe(200);
-    expect(Number(resumed.body.exercises[0].sets[0].weight)).toBe(92.5);
-    expect(resumed.body.exercises[0].sets[0].reps).toBe(7);
+    expect(resumed.body).toHaveLength(1);
+    expect(Number(resumed.body[0].exercises[0].sets[0].weight)).toBe(92.5);
+    expect(resumed.body[0].exercises[0].sets[0].reps).toBe(7);
   });
 
   it('recupera el entrenamiento activo después de iniciar sesión nuevamente', async () => {
@@ -195,15 +196,16 @@ describe('Entrenamientos activos', () => {
 
     const active = await newSession.get('/api/workouts/active');
     expect(active.status).toBe(200);
-    expect(active.body.id).toBe(started.body.id);
-    expect(active.body.status).toBe('in_progress');
+    expect(active.body).toHaveLength(1);
+    expect(active.body[0].id).toBe(started.body.id);
+    expect(active.body[0].status).toBe('in_progress');
   });
 
   it('actualiza sesiones heredadas con estado active sin perder la recuperación', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
 
-    await pool.query('DROP INDEX IF EXISTS workouts_one_active_per_user_idx');
+    await pool.query('DROP INDEX IF EXISTS workouts_one_in_progress_per_routine_idx');
     await pool.query("UPDATE workouts SET status = 'active' WHERE id = $1", [started.body.id]);
     await pool.query("ALTER TABLE workouts ALTER COLUMN status SET DEFAULT 'active'");
     await pool.query(
@@ -215,8 +217,9 @@ describe('Entrenamientos activos', () => {
 
     const resumed = await agentA.get('/api/workouts/active');
     expect(resumed.status).toBe(200);
-    expect(resumed.body.id).toBe(started.body.id);
-    expect(resumed.body.status).toBe('in_progress');
+    expect(resumed.body).toHaveLength(1);
+    expect(resumed.body[0].id).toBe(started.body.id);
+    expect(resumed.body[0].status).toBe('in_progress');
 
     const completed = await agentA.post(`/api/workouts/${started.body.id}/complete`);
     expect(completed.status).toBe(200);
@@ -235,14 +238,31 @@ describe('Entrenamientos activos', () => {
 
     const active = await agentA.get('/api/workouts/active');
     expect(active.status).toBe(200);
-    expect(active.body).toBeNull();
+    expect(active.body).toEqual([]);
 
     const nextWorkout = await agentA.post('/api/workouts').send({ routineId: routine.id });
     expect(nextWorkout.status).toBe(201);
     expect(nextWorkout.body.id).not.toBe(started.body.id);
   });
 
-  it('rechaza un segundo entrenamiento en curso para el mismo usuario', async () => {
+  it('permite entrenamientos en progreso de rutinas diferentes y recuperarlos en cualquier orden', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const otherRoutine = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: otherRoutine.id });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+
+    const recovered = await agentA.get('/api/workouts/active');
+    expect(recovered.status).toBe(200);
+    expect(recovered.body).toHaveLength(2);
+    expect(recovered.body.map((workout: { id: number }) => workout.id)).toEqual(
+      expect.arrayContaining([first.body.id, second.body.id]),
+    );
+  });
+
+  it('rechaza una segunda instancia en progreso de la misma rutina', async () => {
     const routine = await createRoutineWithSets(agentA);
     const first = await agentA.post('/api/workouts').send({ routineId: routine.id });
     const second = await agentA.post('/api/workouts').send({ routineId: routine.id });
@@ -253,9 +273,12 @@ describe('Entrenamientos activos', () => {
 
   it('impide que otro usuario inicie, lea, edite o finalice entrenamientos ajenos', async () => {
     const routine = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentB);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    const startedB = await agentB.post('/api/workouts').send({ routineId: routineB.id });
     const workout = started.body;
 
+    expect(startedB.status).toBe(201);
     expect((await agentB.post('/api/workouts').send({ routineId: routine.id })).status).toBe(404);
     expect((await agentB.get(`/api/workouts/${workout.id}`)).status).toBe(404);
     expect(
@@ -272,6 +295,13 @@ describe('Entrenamientos activos', () => {
     expect(untouched.status).toBe(200);
     expect(untouched.body.status).toBe('in_progress');
     expect(untouched.body.exercises[0].sets).toHaveLength(2);
+
+    const [recoveredA, recoveredB] = await Promise.all([
+      agentA.get('/api/workouts/active'),
+      agentB.get('/api/workouts/active'),
+    ]);
+    expect(recoveredA.body.map((item: { id: number }) => item.id)).toEqual([workout.id]);
+    expect(recoveredB.body.map((item: { id: number }) => item.id)).toEqual([startedB.body.id]);
   });
 
   it('rechaza un guardado desactualizado de otra sesión sin perder el primero', async () => {

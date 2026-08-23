@@ -46,9 +46,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS workout_sets_exercise_number_idx
 -- this index while converting rows so existing in-progress workouts remain
 -- recoverable under the final status contract.
 DROP INDEX IF EXISTS workouts_one_active_per_user_idx;
+DROP INDEX IF EXISTS workouts_one_in_progress_per_routine_idx;
 UPDATE workouts SET status = 'in_progress' WHERE status = 'active';
 ALTER TABLE workouts ALTER COLUMN status SET DEFAULT 'in_progress';
-CREATE UNIQUE INDEX IF NOT EXISTS workouts_one_active_per_user_idx
-  ON workouts (user_id) WHERE status = 'in_progress';
+CREATE UNIQUE INDEX IF NOT EXISTS workouts_one_in_progress_per_routine_idx
+  ON workouts (user_id, routine_id) WHERE status = 'in_progress';
 
 COMMIT;

@@ -67,7 +67,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ routineId }),
       }),
-    active: () => request<WorkoutFull | null>('/api/workouts/active'),
+    inProgress: () => request<WorkoutFull[]>('/api/workouts/active'),
     get: (id: number) => request<WorkoutFull>(`/api/workouts/${id}`),
     update: (id: number, data: UpsertWorkoutPayload) =>
       request<WorkoutSaveResult>(`/api/workouts/${id}`, {

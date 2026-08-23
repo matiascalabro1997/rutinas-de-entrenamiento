@@ -298,7 +298,7 @@ export default function WorkoutPage() {
       await flushSave();
       await api.workouts.finish(workoutId);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['workouts', 'active'] }),
+        queryClient.invalidateQueries({ queryKey: ['workouts', 'in-progress'] }),
         queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] }),
       ]);
       navigate('/routines');

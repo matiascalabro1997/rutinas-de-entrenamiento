@@ -138,8 +138,10 @@ export const workouts = pgTable(
   },
   (t) => ({
     userStatusIdx: index('workouts_user_status_idx').on(t.userId, t.status),
-    oneActiveWorkoutPerUser: uniqueIndex('workouts_one_active_per_user_idx')
-      .on(t.userId)
+    oneInProgressWorkoutPerRoutineAndUser: uniqueIndex(
+      'workouts_one_in_progress_per_routine_idx',
+    )
+      .on(t.userId, t.routineId)
       .where(sql`${t.status} = 'in_progress'`),
   }),
 );
