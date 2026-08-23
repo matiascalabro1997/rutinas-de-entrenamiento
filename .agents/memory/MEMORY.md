@@ -1,2 +1,3 @@
 - [Vitest DB test isolation](vitest-db-isolation.md) — test files share the same PostgreSQL DB; must disable file parallelism or they corrupt each other.
 - [Session store in tests](session-store-tests.md) — use MemoryStore in NODE_ENV=test; connect-pg-simple creates its table async, causing silent save failures in early tests.
+- [Drizzle test configuration](drizzle-test-configuration.md) — installed Drizzle Kit uses the modern PostgreSQL dialect/url config format for the explicit test setup.

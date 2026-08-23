@@ -30,8 +30,8 @@ if (
 export default {
   schema: './server/db/schema.ts',
   out: './drizzle',
-  driver: 'pg',
+  dialect: 'postgresql',
   dbCredentials: {
-    connectionString: testDatabaseUrl,
+    url: testDatabaseUrl,
   },
 } satisfies Config;
