@@ -1,0 +1,74 @@
+Pausá cualquier implementación nueva. Quiero hacer únicamente un diagnóstico, sin modificar código ni datos.
+
+Acabo de probar la versión principal después de aplicar la implementación del tiempo efectivo de entrenamiento y encontré dos comportamientos inesperados:
+
+1. Al entrar a la app aparece un entrenamiento `in_progress` que yo no inicié conscientemente / que no corresponde a ningún entrenamiento que debería estar pendiente.
+2. Al cerrar sesión e intentar volver a iniciar sesión, en un momento apareció un error de servidor. Después pude volver a entrar correctamente.
+
+Quiero que investigues ambos problemas antes de proponer cualquier solución.
+
+IMPORTANTE:
+
+* No modifiques archivos.
+* No ejecutes `npm test`.
+* No ejecutes `cleanDb()`.
+* No ejecutes seeds.
+* No ejecutes migraciones.
+* No ejecutes DELETE, TRUNCATE, DROP ni ninguna operación destructiva.
+* No borres ni alteres el entrenamiento sospechoso.
+* No modifiques datos de desarrollo.
+* No cambies el esquema.
+* No hagas ningún reset.
+* No cambies DATABASE_URL ni TEST_DATABASE_URL.
+
+Necesito que determines específicamente:
+
+### A. Entrenamiento inesperado
+
+1. De dónde sale exactamente el workout `in_progress` que está mostrando la aplicación.
+2. Qué `workout id`, `routine id` y usuario corresponden, sin modificar nada.
+3. Cuándo fue creado y cuál es su estado actual.
+4. Si fue creado por una acción legítima anterior de la aplicación o si existe algún bug que esté creando workouts automáticamente.
+5. Revisá especialmente la lógica nueva del temporizador y la recuperación de workouts al iniciar sesión.
+6. Confirmá si el workout ya existía antes de la implementación del temporizador o si fue creado después.
+7. Revisá si alguna carga de página, login, recuperación de sesión o inicialización del frontend puede estar creando accidentalmente un workout.
+
+### B. Error de servidor al volver a iniciar sesión
+
+1. Revisá los logs disponibles y determiná qué request produjo el error.
+2. Identificá endpoint, status HTTP y error concreto.
+3. Determiná si está relacionado con:
+
+   * autenticación;
+   * recuperación de workouts `in_progress`;
+   * timer;
+   * sesión/cookies;
+   * alguna consulta PostgreSQL;
+   * otra causa.
+4. Verificá si el error es reproducible a partir del código actual, pero NO ejecutes una prueba destructiva ni cambies datos.
+
+### C. Relación entre ambos problemas
+
+Quiero saber si los dos síntomas podrían tener una causa común.
+
+Por ejemplo, investigá si la recuperación de workouts activos durante login/carga de la aplicación está interactuando incorrectamente con la nueva lógica del timer.
+
+### Verificación de seguridad
+
+Antes de cualquier consulta que hagas sobre datos, asegurate de estar conectado a la base de desarrollo correcta y de que la operación sea estrictamente de lectura.
+
+NO uses la base de tests para intentar reproducir esto todavía.
+
+Al terminar, NO implementes ninguna solución.
+
+Entregame un diagnóstico con:
+
+* causa probable o causa confirmada;
+* evidencia concreta;
+* archivos/funciones involucrados;
+* qué datos encontró;
+* si los dos problemas están relacionados;
+* propuesta de solución;
+* y si existe algún riesgo de pérdida o corrupción de datos.
+
+Quiero revisar el diagnóstico antes de autorizar cualquier cambio.
