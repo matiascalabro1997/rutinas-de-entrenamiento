@@ -1,0 +1,131 @@
+Quiero corregir exclusivamente la regla de ejecución simultánea de workouts. No implementes ninguna otra funcionalidad.
+
+### Regla definitiva del producto
+
+Un usuario puede tener múltiples workouts `in_progress` de distintas rutinas, pero **solamente uno puede estar en estado `running` al mismo tiempo**.
+
+Ejemplo válido:
+
+* Día 1 → `in_progress` + `paused`
+* Día 2 → `in_progress` + `running`
+* Día 3 → `in_progress` + `paused`
+
+Ejemplo inválido:
+
+* Día 1 → `running`
+* Día 2 → `running`
+
+### Comportamiento esperado
+
+La regla debe funcionar exactamente igual independientemente de cómo se llegue al estado `running`.
+
+#### Caso 1 — iniciar un workout nuevo
+
+Si A está `running` y el usuario inicia B:
+
+* A debe pasar a `paused`.
+* B pasa a `running`.
+
+No debe haber nunca dos workouts `running`.
+
+#### Caso 2 — pausar A y reanudar B
+
+A:
+
+`running → paused`
+
+B:
+
+`paused → running`
+
+Correcto.
+
+#### Caso 3 — pausar A, reanudar B y luego reanudar A
+
+Después de reanudar B:
+
+* A → `paused`
+* B → `running`
+
+Si posteriormente el usuario reanuda A:
+
+* A → `running`
+* B → `paused`
+
+Nunca deben quedar ambos en `running`.
+
+#### Caso 4 — cerrar/recargar/navegar
+
+Ninguna de estas acciones debe cambiar automáticamente el estado del workout:
+
+* salir de la pantalla del workout;
+* volver a Rutinas;
+* recargar;
+* cerrar y volver a abrir la aplicación;
+* cerrar sesión y volver a iniciar sesión.
+
+Si un workout estaba `running`, continúa `running`.
+
+Si estaba `paused`, permanece `paused`.
+
+### Requisito importante de arquitectura
+
+La regla debe estar garantizada **en backend y en la base de datos**, no solamente en el frontend.
+
+El frontend puede reflejar el estado, pero no debe ser la única protección.
+
+Implementá la transición de cambio de workout activo de manera atómica/transaccional para evitar que dos requests simultáneos puedan terminar dejando dos workouts `running`.
+
+Si corresponde, utilizá una restricción/índice parcial en PostgreSQL para garantizar:
+
+`UNIQUE user_id WHERE timer_status = 'running'`
+
+o el mecanismo equivalente más apropiado para el esquema actual.
+
+No rompas la restricción existente que permite múltiples workouts `in_progress` por usuario, pero impide dos instancias `in_progress` de la misma rutina.
+
+### Tests obligatorios
+
+Agregá o actualizá tests para cubrir como mínimo:
+
+1. Iniciar A → iniciar B → A queda `paused`, B `running`.
+2. Iniciar A → pausar A → reanudar B → B `running`, A `paused`.
+3. Iniciar A → pausar A → reanudar B → reanudar A → A `running`, B `paused`.
+4. Reanudar el mismo workout que ya está `running` no genera estados inconsistentes.
+5. Dos requests concurrentes intentando reanudar distintos workouts del mismo usuario no pueden terminar con dos `running`.
+6. Dos usuarios distintos pueden tener simultáneamente un workout `running` cada uno.
+7. Navegar fuera de la pantalla no pausa el workout.
+8. Recargar/reabrir no pausa el workout.
+9. Pausar realmente detiene el tiempo.
+10. Reanudar vuelve a iniciar correctamente el período activo.
+
+### Seguridad de datos
+
+* No borrar usuarios.
+* No borrar rutinas.
+* No borrar workouts.
+* No ejecutar `TRUNCATE`, `DROP` ni resets.
+* No modificar datos históricos salvo las transiciones necesarias durante los tests.
+* Los tests deben ejecutarse exclusivamente contra `fitness_tracker_test` con `fitness_tracker_test_runner`.
+* `DATABASE_URL` debe permanecer fuera del proceso de tests.
+
+### Verificación
+
+Antes de terminar:
+
+* `npm test`
+* `npx tsc --noEmit`
+* `npm run build`
+
+No avances con la alerta de entrenamientos de más de 3 horas ni con historial/estadísticas.
+
+Al finalizar, informame:
+
+* archivos modificados;
+* cambio de esquema/migración, si fue necesario;
+* cómo se garantiza la unicidad de `running`;
+* tests agregados;
+* resultado de tests;
+* TypeScript;
+* build;
+* y cualquier dato de desarrollo que haya sido modificado.
