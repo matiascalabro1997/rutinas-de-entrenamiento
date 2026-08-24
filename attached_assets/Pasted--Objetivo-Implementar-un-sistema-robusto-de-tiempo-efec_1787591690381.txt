@@ -1,0 +1,302 @@
+## Objetivo
+
+Implementar un sistema robusto de **tiempo efectivo de entrenamiento** para los workouts activos existentes.
+
+Antes de modificar código, revisá la arquitectura actual de `workouts`, `WorkoutPage`, autosave, estados `in_progress/completed`, snapshots y persistencia. La implementación debe integrarse con lo existente y no romper ninguna funcionalidad actual.
+
+## 1. Comportamiento del cronómetro
+
+Al iniciar un entrenamiento:
+
+* El cronómetro comienza automáticamente en `00:00`.
+* Debe ser claramente visible en la parte superior de `WorkoutPage`.
+* Formato:
+
+  * `MM:SS` mientras sea menor a una hora.
+  * `HH:MM:SS` a partir de una hora.
+* Debe actualizarse visualmente en tiempo real.
+* El cronómetro representa **tiempo efectivo de entrenamiento**, no tiempo calendario desde que se creó el workout.
+
+Agregar un control visible y cómodo para mobile:
+
+* Mientras está activo: `⏸ Pausar entrenamiento`
+* Mientras está pausado: `▶ Continuar entrenamiento`
+
+Al iniciar el entrenamiento, debe quedar automáticamente en estado activo, sin requerir que el usuario toque ningún botón adicional.
+
+## 2. Regla fundamental: no intentar detectar actividad automáticamente
+
+NO intentes determinar si el usuario está entrenando mediante:
+
+* si la pestaña está visible;
+* si el navegador está abierto;
+* si el usuario cambia de aplicación;
+* si bloquea el teléfono;
+* eventos de `visibilitychange`;
+* cierre o apertura del navegador;
+* actividad del mouse/touch;
+* ningún otro mecanismo de detección automática.
+
+El usuario puede salir constantemente de la aplicación para mirar WhatsApp, Spotify, YouTube, mensajes, etc.
+
+Salir de la aplicación **NO significa pausar el entrenamiento**.
+
+La única acción que pausa el cronómetro es el botón explícito `Pausar entrenamiento`.
+
+## 3. Persistencia correcta del tiempo
+
+No utilices simplemente:
+
+`completed_at - started_at`
+
+porque eso contaría períodos en los que el usuario no estuvo entrenando.
+
+El modelo debe permitir representar períodos activos y pausados.
+
+Una solución aceptable es conservar:
+
+* tiempo acumulado previo (`elapsed_seconds` o equivalente);
+* timestamp del comienzo del período activo actual;
+* estado actual del cronómetro (`running/paused` o equivalente).
+
+La duración total debe poder reconstruirse de forma determinística.
+
+Ejemplo:
+
+### Día 1
+
+18:00 → inicia
+18:45 → pausa
+
+Tiempo acumulado: **45 min**
+
+### Día 3
+
+17:00 → continúa
+17:30 → finaliza
+
+Duración final:
+
+**1h 15m**
+
+Las aproximadamente 46 horas entre ambas sesiones NO cuentan.
+
+## 4. Cierre, recarga y reapertura
+
+Este punto es especialmente importante.
+
+Si el usuario está entrenando y:
+
+* recarga la página;
+* cierra la pestaña;
+* cierra el navegador;
+* cambia de aplicación;
+* bloquea el teléfono;
+* vuelve horas después;
+
+NO debe interpretarse automáticamente como una pausa.
+
+Si el workout estaba `running`, al volver debe poder reconstruirse correctamente el tiempo transcurrido desde el último período activo.
+
+Ejemplo:
+
+18:00 inicia.
+
+18:20 sale de la app.
+
+18:25 vuelve.
+
+El cronómetro debe mostrar aproximadamente:
+
+**00:25:00**
+
+No `00:20:00`.
+
+Si el usuario quería detener el tiempo, debía haber utilizado `Pausar entrenamiento`.
+
+Si el workout estaba `paused` cuando salió de la app, debe seguir pausado al volver.
+
+## 5. Finalización
+
+Cuando el usuario toca `Finalizar entrenamiento`:
+
+* detener inmediatamente el cronómetro;
+* calcular y persistir definitivamente la duración;
+* conservarla aunque posteriormente se modifique o elimine la rutina fuente;
+* cambiar el workout al estado `completed`;
+* impedir nuevas modificaciones de tiempo;
+* al volver a abrir el entrenamiento histórico, mostrar la duración final congelada.
+
+No debe existir ningún riesgo de que un entrenamiento finalizado continúe acumulando tiempo.
+
+## 6. Múltiples workouts en progreso
+
+Actualmente el sistema permite:
+
+* múltiples workouts `in_progress` para un mismo usuario;
+* como máximo uno `in_progress` por cada combinación `user_id + routine_id`.
+
+Mantener esta regla.
+
+Cada workout debe tener su propio cronómetro y tiempo acumulado.
+
+Ejemplo:
+
+* Rutina A → 42 minutos.
+* Rutina B → 17 minutos.
+
+Modificar o continuar una no debe afectar el tiempo de la otra.
+
+## 7. Autosave y consistencia
+
+Integrar el cronómetro con el autosave existente sin generar un request al backend cada segundo.
+
+El contador visual puede actualizarse localmente cada segundo, pero la persistencia debe realizarse de forma eficiente y segura.
+
+Asegurate de que:
+
+* pausar guarde inmediatamente el estado y el tiempo acumulado;
+* continuar guarde correctamente el nuevo período activo;
+* finalizar guarde el tiempo antes de completar el workout;
+* una recarga no pierda los últimos segundos/minutos;
+* los cambios de peso, reps, RIR y `completed` sigan funcionando exactamente como ahora.
+
+Prestá especial atención a race conditions entre autosaves y acciones de pausa/finalización.
+
+## 8. Casos límite
+
+Considerá explícitamente:
+
+* iniciar → pausar inmediatamente;
+* iniciar → esperar → pausar;
+* iniciar → recargar mientras está activo;
+* iniciar → cerrar/reabrir mientras está activo;
+* iniciar → pausar → cerrar/reabrir;
+* iniciar → pausar → continuar;
+* iniciar → varias pausas y continuaciones;
+* finalizar mientras está activo;
+* finalizar estando pausado;
+* dos pestañas abiertas del mismo workout;
+* usuario que tiene dos workouts de distintas rutinas en progreso;
+* pérdida temporal de conexión;
+* reloj del cliente incorrecto o manipulado.
+
+La duración persistida no debe poder generar valores absurdos por un timestamp del cliente manipulado. Usá timestamps del servidor o una estrategia equivalente cuando corresponda.
+
+## 9. UX mobile
+
+El cronómetro debe tener suficiente protagonismo para que el usuario pueda verlo durante el entrenamiento sin interferir con las series.
+
+Propuesta visual:
+
+**PECHO**
+
+**⏱ 00:47:32**
+
+`⏸ Pausar entrenamiento`
+
+Después de pausar:
+
+**⏸ 00:47:32**
+
+`▶ Continuar entrenamiento`
+
+El botón debe ser grande y cómodo para tocar con una mano.
+
+No rediseñes toda la aplicación en esta tarea. Limitá los cambios visuales a lo necesario para integrar correctamente el cronómetro.
+
+## 10. Preparar correctamente los datos para estadísticas futuras
+
+Además del tiempo total, preservá información suficiente para que posteriormente podamos mostrar:
+
+* duración total;
+* cantidad de ejercicios realizados;
+* cantidad de series realizadas;
+* porcentaje de completitud;
+* duración promedio por rutina;
+* historial de entrenamientos.
+
+Importante: **no implementes todavía gráficos ni estadísticas avanzadas**.
+
+En particular, el sistema debe poder distinguir:
+
+### Entrenamiento completado al 100%
+
+4/4 ejercicios
+12/12 series
+60 minutos
+
+### Entrenamiento completado parcialmente
+
+2/4 ejercicios
+6/12 series
+40 minutos
+
+Ambos son workouts `completed` si el usuario presionó `Finalizar entrenamiento`.
+
+La aplicación registra lo que el usuario hizo; no debe considerar automáticamente que un entrenamiento parcial es un error.
+
+## 11. Tests
+
+Agregar o actualizar tests para cubrir como mínimo:
+
+1. El cronómetro comienza al iniciar un workout.
+2. El tiempo se acumula correctamente.
+3. Pausar detiene la acumulación.
+4. Continuar reanuda correctamente.
+5. Múltiples períodos activos se suman correctamente.
+6. El tiempo pausado no se suma.
+7. Recargar/reabrir un workout activo reconstruye correctamente el tiempo.
+8. Recargar/reabrir un workout pausado mantiene el estado pausado.
+9. Finalizar congela definitivamente la duración.
+10. Un workout parcialmente completado conserva su duración.
+11. Dos workouts de distintas rutinas tienen tiempos independientes.
+12. Un usuario no puede afectar el tiempo del workout de otro usuario.
+13. Una segunda instancia de la misma rutina sigue estando bloqueada mientras exista otra `in_progress`.
+14. No se rompe el autosave de peso, reps, RIR ni `completed`.
+15. Las operaciones de pausa/finalización son seguras frente a requests concurrentes.
+
+Los tests deben ejecutarse exclusivamente contra:
+
+`TEST_DATABASE_URL`
+
+Nunca utilizar `DATABASE_URL` como fallback.
+
+## 12. Seguridad de base de datos
+
+Mantener estrictamente la arquitectura de aislamiento existente:
+
+* desarrollo/producción → `DATABASE_URL`;
+* tests → exclusivamente `TEST_DATABASE_URL`;
+* nunca fallback;
+* nunca ejecutar `cleanDb()` sobre desarrollo;
+* nunca ejecutar tests contra la base de desarrollo.
+
+No ejecutar ninguna operación destructiva sobre la base de desarrollo.
+
+## 13. Verificación final
+
+Al terminar:
+
+1. Ejecutar `npm test`.
+2. Ejecutar `npx tsc --noEmit`.
+3. Ejecutar `npm run build`.
+4. Verificar que la aplicación arranca correctamente.
+5. Confirmar explícitamente que los tests utilizaron:
+
+   * `TEST_DATABASE_URL`;
+   * `fitness_tracker_test`;
+   * `fitness_tracker_test_runner`;
+   * y que `DATABASE_URL` no estaba disponible para el proceso de tests.
+
+No modifiques funcionalidades no relacionadas con esta tarea.
+
+Al finalizar, reportá:
+
+* qué archivos modificaste;
+* cómo modelaste el tiempo;
+* cómo manejás recargas/cierres/reaperturas;
+* cómo manejás múltiples períodos activos/pausados;
+* qué casos límite cubriste;
+* resultado de tests, TypeScript y build;
+* cualquier decisión de arquitectura que pueda afectar el futuro historial/estadísticas.
