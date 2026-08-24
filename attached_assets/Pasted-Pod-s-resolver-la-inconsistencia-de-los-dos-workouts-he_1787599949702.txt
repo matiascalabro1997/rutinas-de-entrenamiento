@@ -1,0 +1,50 @@
+Podés resolver la inconsistencia de los dos workouts heredados y continuar con la Task #10.
+
+Como ambos workouts pertenecen al mismo usuario y me da igual cuál quede actualmente en ejecución:
+
+* Elegí cualquiera de los dos workouts `running` para conservarlo como `running`.
+* Cambiá únicamente el otro de `running` a `paused`.
+* No borres ninguno de los dos.
+* No modifiques ejercicios, series, snapshots ni ningún otro dato histórico.
+* No cambies `started_at` ni inventes tiempo efectivo.
+* Conservá todos los datos existentes de ambos workouts.
+
+Una vez corregida esa inconsistencia:
+
+1. Aplicá la garantía de base de datos para que un mismo usuario no pueda tener más de un workout con `timer_status = 'running'`.
+2. Completá la implementación de Task #10 según el plan aprobado.
+3. Asegurate de que la regla también se respete de forma atómica en backend ante requests concurrentes.
+4. Mantené la posibilidad de tener múltiples workouts `in_progress` del mismo usuario, siempre que sólo uno esté `running`.
+5. No implementes todavía la alerta de entrenamientos de más de 3 horas ni ninguna funcionalidad de historial.
+
+### Seguridad
+
+* No borrar usuarios, rutinas, workouts, ejercicios ni series.
+* No ejecutar `TRUNCATE` ni `DROP`.
+* No hacer ningún reset de la base.
+* El único cambio de datos de desarrollo autorizado es pasar uno de los dos workouts heredados de `running` a `paused`.
+* No modifiques ningún otro dato histórico.
+
+### Validación
+
+Después de completar la implementación:
+
+* `npm test`
+* `npx tsc --noEmit`
+* `npm run build`
+
+Los tests deben ejecutarse exclusivamente contra `fitness_tracker_test` con `fitness_tracker_test_runner`, sin `DATABASE_URL` disponible para el proceso de tests.
+
+Al terminar, informame:
+
+* cuál workout quedó `running` y cuál `paused`;
+* cómo quedó implementada la restricción de un único `running` por usuario;
+* archivos modificados;
+* migraciones aplicadas;
+* tests agregados;
+* resultado de tests;
+* TypeScript;
+* build;
+* y cualquier advertencia.
+
+No hagas ningún cambio adicional fuera de Task #10.

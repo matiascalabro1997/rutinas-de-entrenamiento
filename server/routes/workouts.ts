@@ -8,6 +8,7 @@ import {
   routineExercises,
   routineSets,
   routines,
+  users,
   workoutExercises,
   workoutSets,
   workouts,
@@ -122,9 +123,15 @@ async function transitionTimer(
   action: 'pause' | 'resume',
 ) {
   await db.transaction(async (tx) => {
-    // Lock every in-progress workout for this user in a stable order. Resuming
-    // A and B at the same time therefore serializes without a deadlock and the
-    // database never observes two final running rows.
+    // Lock the user first so transitions serialize even when the user has no
+    // existing workout rows yet. Then lock workouts in a stable order to avoid
+    // deadlocks while preserving the database index as a final safeguard.
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
     const inProgressWorkouts = await tx
       .select()
       .from(workouts)
@@ -189,9 +196,17 @@ router.post('/', async (req, res) => {
   try {
     const userId = req.session.userId!;
     const workoutId = await db.transaction(async (tx) => {
-      // Lock in stable order before looking for a routine collision or pausing
-      // current timers. The unique partial index remains the final protection
-      // if two transactions begin while the user has no workouts yet.
+      // Serialize all timer starts for this user, including the first pair of
+      // concurrent starts when no workout row exists yet.
+      await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for('update')
+        .limit(1);
+
+      // Lock workouts in stable order before looking for a routine collision
+      // or pausing current timers.
       const inProgressWorkouts = await tx
         .select()
         .from(workouts)
@@ -346,6 +361,9 @@ router.post('/:id/resume', async (req, res) => {
       if (error.message === 'WORKOUT_COMPLETED') {
         return res.status(409).json({ error: 'El entrenamiento ya fue finalizado' });
       }
+    }
+    if (isUniqueViolation(error)) {
+      return res.status(409).json({ error: 'El cronómetro cambió en otra sesión' });
     }
     console.error('resume workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });

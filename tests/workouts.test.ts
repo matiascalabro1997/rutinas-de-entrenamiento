@@ -258,6 +258,47 @@ describe('Entrenamientos activos', () => {
     expect([first.body.id, second.body.id]).toContain(running.rows[0]?.id);
   });
 
+  it('serializa inicios concurrentes de rutinas distintas sin dejar dos workouts en ejecución', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+
+    const responses = await Promise.all([
+      agentA.post('/api/workouts').send({ routineId: routineA.id }),
+      agentA.post('/api/workouts').send({ routineId: routineB.id }),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+
+    const running = await pool.query<{ id: number }>(
+      "SELECT id FROM workouts WHERE user_id = (SELECT user_id FROM workouts WHERE id = $1) AND timer_status = 'running'",
+      [responses[0].body.id],
+    );
+    expect(running.rows).toHaveLength(1);
+    expect(responses.map((response) => response.body.id)).toContain(running.rows[0]?.id);
+  });
+
+  it('serializa un inicio y una reanudación concurrentes sin devolver un error interno', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const routineC = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+    await agentA.post(`/api/workouts/${second.body.id}/pause`);
+
+    const [resumed, started] = await Promise.all([
+      agentA.post(`/api/workouts/${first.body.id}/resume`),
+      agentA.post('/api/workouts').send({ routineId: routineC.id }),
+    ]);
+    expect(resumed.status).toBe(200);
+    expect(started.status).toBe(201);
+
+    const running = await pool.query<{ id: number }>(
+      "SELECT id FROM workouts WHERE user_id = (SELECT user_id FROM workouts WHERE id = $1) AND timer_status = 'running'",
+      [first.body.id],
+    );
+    expect(running.rows).toHaveLength(1);
+    expect([first.body.id, started.body.id]).toContain(running.rows[0]?.id);
+  });
+
   it('permite un workout en ejecución por cada usuario distinto', async () => {
     const routineA = await createRoutineWithSets(agentA);
     const routineB = await createRoutineWithSets(agentB);
