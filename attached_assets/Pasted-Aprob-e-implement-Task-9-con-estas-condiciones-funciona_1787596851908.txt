@@ -1,0 +1,83 @@
+Aprobá e implementá Task #9 con estas condiciones funcionales y de seguridad.
+
+### Objetivo
+
+Aplicar de forma segura la migración del sistema de tiempo efectivo a la base de desarrollo, restaurando el acceso a los workouts `in_progress` existentes sin perder ni modificar sus datos actuales.
+
+### Regla importante para workouts existentes
+
+Los workouts que fueron creados antes de la implementación del temporizador no tienen información confiable sobre períodos activos/pausados.
+
+Por lo tanto:
+
+* Mantener intactos `started_at`, ejercicios, series, pesos, reps, RIR, snapshots y cualquier otro dato existente.
+* `elapsed_seconds` debe inicializarse en `0`.
+* `timer_status` debe inicializarse en `paused`.
+* `active_started_at` debe quedar en `NULL`.
+* NO calcular tiempo retroactivo a partir de `started_at`.
+* NO asumir que todo el tiempo desde `started_at` fue tiempo efectivo de entrenamiento.
+
+Esto aplica especialmente al workout existente `id=4`, que actualmente está `in_progress`.
+
+### Migración
+
+La migración debe ser estrictamente aditiva y segura:
+
+* Crear únicamente las columnas necesarias:
+
+  * `elapsed_seconds`
+  * `active_started_at`
+  * `timer_status`
+* Usar operaciones idempotentes cuando corresponda.
+* No ejecutar `DROP`.
+* No ejecutar `TRUNCATE`.
+* No ejecutar `DELETE`.
+* No recrear tablas.
+* No modificar ni borrar usuarios, rutinas, workouts, ejercicios ni series existentes.
+* No utilizar ningún mecanismo que pueda resetear o truncar la base.
+* No aceptar automáticamente ninguna propuesta de sincronización que implique pérdida de datos.
+
+### Orden de trabajo
+
+1. Preparar/ajustar la migración.
+2. Validarla primero exclusivamente en `fitness_tracker_test`.
+3. Ejecutar los tests relacionados con workouts usando `TEST_DATABASE_URL`.
+4. Verificar TypeScript y build.
+5. Sólo después de que todo pase, aplicar la migración aditiva a la base de desarrollo.
+6. Reiniciar la aplicación.
+7. Verificar mediante consultas de sólo lectura que:
+
+   * `workouts` contiene las tres columnas nuevas.
+   * El workout `id=4` sigue existiendo.
+   * Sus ejercicios y series siguen existiendo.
+   * Su estado funcional sigue siendo `in_progress`.
+   * `elapsed_seconds = 0`.
+   * `timer_status = 'paused'`.
+   * `active_started_at IS NULL`.
+
+### Verificación funcional
+
+Después de la migración:
+
+* `GET /api/workouts/active` debe funcionar sin HTTP 500.
+* El usuario debe poder cerrar sesión y volver a iniciar sesión normalmente.
+* El workout existente debe aparecer como pendiente/continuable.
+* Al continuar ese workout, el cronómetro debe comenzar a contar desde 0.
+* Un workout nuevo iniciado después de la migración debe comenzar normalmente con el timer en `running` y `elapsed_seconds = 0`.
+* Pausar y reanudar deben funcionar como en la implementación anterior.
+
+### Muy importante
+
+No implementes ninguna otra funcionalidad ni avances a la tarea siguiente.
+
+No borres el workout `id=4`; quiero conservarlo para verificar que la migración preservó correctamente los datos existentes.
+
+Al terminar, informame:
+
+* archivos modificados;
+* migración aplicada;
+* resultado de tests;
+* resultado de TypeScript;
+* resultado de build;
+* estado final del workout `id=4`;
+* y cualquier advertencia o riesgo detectado.

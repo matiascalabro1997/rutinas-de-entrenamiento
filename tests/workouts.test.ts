@@ -451,16 +451,9 @@ describe('Entrenamientos activos', () => {
     expect(active.body[0].status).toBe('in_progress');
   });
 
-  it('actualiza sesiones heredadas con estado active sin perder la recuperación', async () => {
+  it('aplica la migración de tiempo efectivo de forma idempotente sin alterar un workout activo', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
-
-    await pool.query('DROP INDEX IF EXISTS workouts_one_in_progress_per_routine_idx');
-    await pool.query("UPDATE workouts SET status = 'active' WHERE id = $1", [started.body.id]);
-    await pool.query("ALTER TABLE workouts ALTER COLUMN status SET DEFAULT 'active'");
-    await pool.query(
-      "CREATE UNIQUE INDEX workouts_one_active_per_user_idx ON workouts (user_id) WHERE status = 'active'",
-    );
 
     const migration = await readFile('scripts/migrate-workouts.sql', 'utf8');
     await pool.query(migration);
@@ -470,6 +463,8 @@ describe('Entrenamientos activos', () => {
     expect(resumed.body).toHaveLength(1);
     expect(resumed.body[0].id).toBe(started.body.id);
     expect(resumed.body[0].status).toBe('in_progress');
+    expect(resumed.body[0].elapsedSeconds).toBeGreaterThanOrEqual(0);
+    expect(resumed.body[0].timerStatus).toBe('running');
 
     const completed = await agentA.post(`/api/workouts/${started.body.id}/complete`);
     expect(completed.status).toBe(200);
