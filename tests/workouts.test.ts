@@ -162,30 +162,126 @@ describe('Entrenamientos activos', () => {
     expect((await agentA.post(`/api/workouts/${started.body.id}/resume`)).status).toBe(409);
   });
 
-  it('mantiene el tiempo independiente entre workouts de rutinas diferentes', async () => {
-    const firstRoutine = await createRoutineWithSets(agentA);
-    const secondRoutine = await createRoutineWithSets(agentA);
-    const first = await agentA.post('/api/workouts').send({ routineId: firstRoutine.id });
-    const second = await agentA.post('/api/workouts').send({ routineId: secondRoutine.id });
-
+  it('pausa A al iniciar B y mantiene sólo B en ejecución', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
     await pool.query(
       "UPDATE workouts SET active_started_at = now() - interval '40 seconds' WHERE id = $1",
       [first.body.id],
     );
-    await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '140 seconds' WHERE id = $1",
+
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+    expect(second.status).toBe(201);
+    expect(second.body.timerStatus).toBe('running');
+
+    const pausedFirst = await agentA.get(`/api/workouts/${first.body.id}`);
+    expect(pausedFirst.body.timerStatus).toBe('paused');
+    expect(pausedFirst.body.activeStartedAt).toBeNull();
+    expect(pausedFirst.body.elapsedSeconds).toBeGreaterThanOrEqual(40);
+
+    const running = await pool.query<{ id: number }>(
+      "SELECT id FROM workouts WHERE user_id = (SELECT user_id FROM workouts WHERE id = $1) AND timer_status = 'running'",
       [second.body.id],
     );
+    expect(running.rows.map((row) => row.id)).toEqual([second.body.id]);
+  });
 
-    const [firstPaused, secondPaused] = await Promise.all([
-      agentA.post(`/api/workouts/${first.body.id}/pause`),
-      agentA.post(`/api/workouts/${second.body.id}/pause`),
+  it('mantiene A pausado al pausar A y reanudar B', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+
+    expect((await agentA.post(`/api/workouts/${second.body.id}/pause`)).status).toBe(200);
+    expect((await agentA.post(`/api/workouts/${first.body.id}/pause`)).status).toBe(200);
+    const resumedSecond = await agentA.post(`/api/workouts/${second.body.id}/resume`);
+
+    expect(resumedSecond.status).toBe(200);
+    expect(resumedSecond.body.timerStatus).toBe('running');
+    expect((await agentA.get(`/api/workouts/${first.body.id}`)).body.timerStatus).toBe('paused');
+  });
+
+  it('al reanudar A pausa B aunque B se hubiera reanudado antes', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+
+    await agentA.post(`/api/workouts/${second.body.id}/pause`);
+    await agentA.post(`/api/workouts/${first.body.id}/resume`);
+    await agentA.post(`/api/workouts/${first.body.id}/pause`);
+    const resumedSecond = await agentA.post(`/api/workouts/${second.body.id}/resume`);
+    expect(resumedSecond.body.timerStatus).toBe('running');
+
+    const resumedFirst = await agentA.post(`/api/workouts/${first.body.id}/resume`);
+    expect(resumedFirst.status).toBe(200);
+    expect(resumedFirst.body.timerStatus).toBe('running');
+    expect((await agentA.get(`/api/workouts/${second.body.id}`)).body.timerStatus).toBe('paused');
+  });
+
+  it('reanudar el mismo workout en ejecución es idempotente y conserva la unicidad', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+
+    const repeatedResume = await agentA.post(`/api/workouts/${started.body.id}/resume`);
+    expect(repeatedResume.status).toBe(200);
+    expect(repeatedResume.body.timerStatus).toBe('running');
+    expect(repeatedResume.body.version).toBe(started.body.version);
+    expect(repeatedResume.body.activeStartedAt).toBe(started.body.activeStartedAt);
+
+    const running = await pool.query<{ running_count: string }>(
+      "SELECT count(*) AS running_count FROM workouts WHERE user_id = (SELECT user_id FROM workouts WHERE id = $1) AND timer_status = 'running'",
+      [started.body.id],
+    );
+    expect(Number(running.rows[0]?.running_count)).toBe(1);
+  });
+
+  it('serializa reanudaciones concurrentes de workouts distintos sin dejar dos en ejecución', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+    await agentA.post(`/api/workouts/${second.body.id}/pause`);
+
+    const responses = await Promise.all([
+      agentA.post(`/api/workouts/${first.body.id}/resume`),
+      agentA.post(`/api/workouts/${second.body.id}/resume`),
     ]);
-    expect(firstPaused.status).toBe(200);
-    expect(secondPaused.status).toBe(200);
-    expect(firstPaused.body.elapsedSeconds).toBeGreaterThanOrEqual(40);
-    expect(secondPaused.body.elapsedSeconds).toBeGreaterThanOrEqual(140);
-    expect(secondPaused.body.elapsedSeconds).toBeGreaterThan(firstPaused.body.elapsedSeconds);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+
+    const running = await pool.query<{ id: number }>(
+      "SELECT id FROM workouts WHERE user_id = (SELECT user_id FROM workouts WHERE id = $1) AND timer_status = 'running'",
+      [first.body.id],
+    );
+    expect(running.rows).toHaveLength(1);
+    expect([first.body.id, second.body.id]).toContain(running.rows[0]?.id);
+  });
+
+  it('permite un workout en ejecución por cada usuario distinto', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentB);
+
+    const [first, second] = await Promise.all([
+      agentA.post('/api/workouts').send({ routineId: routineA.id }),
+      agentB.post('/api/workouts').send({ routineId: routineB.id }),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.timerStatus).toBe('running');
+    expect(second.body.timerStatus).toBe('running');
+  });
+
+  it('la restricción de base de datos rechaza dos workouts running del mismo usuario', async () => {
+    const routineA = await createRoutineWithSets(agentA);
+    const routineB = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: routineB.id });
+
+    await expect(
+      pool.query("UPDATE workouts SET timer_status = 'running' WHERE id = $1", [first.body.id]),
+    ).rejects.toMatchObject({ code: '23505' });
+    expect((await agentA.get(`/api/workouts/${second.body.id}`)).body.timerStatus).toBe('running');
   });
 
   it('serializa pausas y finalizaciones concurrentes sin duplicar el tiempo', async () => {
@@ -434,6 +530,7 @@ describe('Entrenamientos activos', () => {
     expect(resumed.body).toHaveLength(1);
     expect(Number(resumed.body[0].exercises[0].sets[0].weight)).toBe(92.5);
     expect(resumed.body[0].exercises[0].sets[0].reps).toBe(7);
+    expect(resumed.body[0].timerStatus).toBe('running');
   });
 
   it('recupera el entrenamiento activo después de iniciar sesión nuevamente', async () => {

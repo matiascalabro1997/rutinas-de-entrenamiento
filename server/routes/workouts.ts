@@ -103,43 +103,69 @@ function activeSecondsSince(startedAt: Date | null, now: Date) {
   return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
 }
 
+function pausedTimerValues(
+  workout: typeof workouts.$inferSelect,
+  now: Date,
+) {
+  return {
+    elapsedSeconds: workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now),
+    activeStartedAt: null,
+    timerStatus: 'paused' as const,
+    version: workout.version + 1,
+    updatedAt: now,
+  };
+}
+
 async function transitionTimer(
   workoutId: number,
   userId: number,
   action: 'pause' | 'resume',
 ) {
   await db.transaction(async (tx) => {
-    const [workout] = await tx
+    // Lock every in-progress workout for this user in a stable order. Resuming
+    // A and B at the same time therefore serializes without a deadlock and the
+    // database never observes two final running rows.
+    const inProgressWorkouts = await tx
       .select()
       .from(workouts)
-      .where(and(eq(workouts.id, workoutId), eq(workouts.userId, userId)))
-      .for('update')
-      .limit(1);
-    if (!workout) throw new Error('WORKOUT_NOT_FOUND');
-    if (workout.status !== 'in_progress' || workout.timerStatus === 'completed') {
+      .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
+      .orderBy(asc(workouts.id))
+      .for('update');
+    const workout = inProgressWorkouts.find((item) => item.id === workoutId);
+    if (!workout) {
+      const [ownedWorkout] = await tx
+        .select({ id: workouts.id })
+        .from(workouts)
+        .where(and(eq(workouts.id, workoutId), eq(workouts.userId, userId)))
+        .limit(1);
+      if (!ownedWorkout) throw new Error('WORKOUT_NOT_FOUND');
       throw new Error('WORKOUT_COMPLETED');
     }
+    if (workout.timerStatus === 'completed') throw new Error('WORKOUT_COMPLETED');
 
     const now = new Date();
     if (action === 'pause') {
       // A repeated pause is safe and does not create another version.
       if (workout.timerStatus === 'paused') return;
-      const elapsedSeconds =
-        workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now);
       await tx
         .update(workouts)
-        .set({
-          elapsedSeconds,
-          activeStartedAt: null,
-          timerStatus: 'paused',
-          version: workout.version + 1,
-          updatedAt: now,
-        })
+        .set(pausedTimerValues(workout, now))
         .where(eq(workouts.id, workoutId));
       return;
     }
 
-    // A repeated resume is safe and leaves the active period untouched.
+    // Before activating the target, stop all the user's other active periods
+    // using the same server timestamp. This also repairs any legacy duplicate
+    // running state as soon as one of its workouts is explicitly resumed.
+    for (const otherWorkout of inProgressWorkouts) {
+      if (otherWorkout.id === workoutId || otherWorkout.timerStatus !== 'running') continue;
+      await tx
+        .update(workouts)
+        .set(pausedTimerValues(otherWorkout, now))
+        .where(eq(workouts.id, otherWorkout.id));
+    }
+
+    // A repeated resume is safe after enforcing that no other timer is running.
     if (workout.timerStatus === 'running') return;
     await tx
       .update(workouts)
@@ -163,17 +189,18 @@ router.post('/', async (req, res) => {
   try {
     const userId = req.session.userId!;
     const workoutId = await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select({ id: workouts.id })
+      // Lock in stable order before looking for a routine collision or pausing
+      // current timers. The unique partial index remains the final protection
+      // if two transactions begin while the user has no workouts yet.
+      const inProgressWorkouts = await tx
+        .select()
         .from(workouts)
-        .where(
-          and(
-            eq(workouts.userId, userId),
-            eq(workouts.routineId, parsed.data.routineId),
-            eq(workouts.status, 'in_progress'),
-          ),
-        )
-        .limit(1);
+        .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
+        .orderBy(asc(workouts.id))
+        .for('update');
+      const existing = inProgressWorkouts.find(
+        (workout) => workout.routineId === parsed.data.routineId,
+      );
       if (existing) throw new ActiveWorkoutExistsError();
 
       const [routine] = await tx
@@ -190,6 +217,14 @@ router.post('/', async (req, res) => {
       if (!routine) return null;
 
       const now = new Date();
+      for (const inProgressWorkout of inProgressWorkouts) {
+        if (inProgressWorkout.timerStatus !== 'running') continue;
+        await tx
+          .update(workouts)
+          .set(pausedTimerValues(inProgressWorkout, now))
+          .where(eq(workouts.id, inProgressWorkout.id));
+      }
+
       const [workout] = await tx
         .insert(workouts)
         .values({

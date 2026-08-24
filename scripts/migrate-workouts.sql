@@ -17,4 +17,26 @@ ALTER TABLE workouts
 ALTER TABLE workouts
   ALTER COLUMN timer_status SET DEFAULT 'running';
 
+-- Do not reinterpret or change existing workouts. A unique partial index can
+-- only be created when persisted data already satisfies the product rule.
+-- Raising here rolls the whole transaction back without modifying a workout.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM workouts
+    WHERE timer_status = 'running'
+    GROUP BY user_id
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION
+      'Cannot add workouts_one_running_per_user_idx: existing users have multiple running workouts';
+  END IF;
+END
+$$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS workouts_one_running_per_user_idx
+  ON workouts (user_id)
+  WHERE timer_status = 'running';
+
 COMMIT;
