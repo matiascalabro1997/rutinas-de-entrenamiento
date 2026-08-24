@@ -18,6 +18,8 @@ const router = Router();
 
 router.use(requireAuth);
 
+type TimerStatus = 'running' | 'paused' | 'completed';
+
 const setSchema = z.object({
   id: z.number().int().positive().optional(),
   // Vincula una serie creada en el cliente con su ID de base de datos, aun si
@@ -81,7 +83,74 @@ async function loadWorkoutWithDetails(workoutId: number) {
     }),
   );
 
-  return { ...workout, exercises: exercisesWithSets };
+  const serverNow = new Date();
+  const elapsedSeconds =
+    workout.timerStatus === 'running' && workout.activeStartedAt
+      ? workout.elapsedSeconds +
+        Math.max(0, Math.floor((serverNow.getTime() - workout.activeStartedAt.getTime()) / 1000))
+      : workout.elapsedSeconds;
+
+  return {
+    ...workout,
+    elapsedSeconds,
+    serverNow: serverNow.toISOString(),
+    exercises: exercisesWithSets,
+  };
+}
+
+function activeSecondsSince(startedAt: Date | null, now: Date) {
+  if (!startedAt) return 0;
+  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
+}
+
+async function transitionTimer(
+  workoutId: number,
+  userId: number,
+  action: 'pause' | 'resume',
+) {
+  await db.transaction(async (tx) => {
+    const [workout] = await tx
+      .select()
+      .from(workouts)
+      .where(and(eq(workouts.id, workoutId), eq(workouts.userId, userId)))
+      .for('update')
+      .limit(1);
+    if (!workout) throw new Error('WORKOUT_NOT_FOUND');
+    if (workout.status !== 'in_progress' || workout.timerStatus === 'completed') {
+      throw new Error('WORKOUT_COMPLETED');
+    }
+
+    const now = new Date();
+    if (action === 'pause') {
+      // A repeated pause is safe and does not create another version.
+      if (workout.timerStatus === 'paused') return;
+      const elapsedSeconds =
+        workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now);
+      await tx
+        .update(workouts)
+        .set({
+          elapsedSeconds,
+          activeStartedAt: null,
+          timerStatus: 'paused',
+          version: workout.version + 1,
+          updatedAt: now,
+        })
+        .where(eq(workouts.id, workoutId));
+      return;
+    }
+
+    // A repeated resume is safe and leaves the active period untouched.
+    if (workout.timerStatus === 'running') return;
+    await tx
+      .update(workouts)
+      .set({
+        activeStartedAt: now,
+        timerStatus: 'running',
+        version: workout.version + 1,
+        updatedAt: now,
+      })
+      .where(eq(workouts.id, workoutId));
+  });
 }
 
 // POST /api/workouts — inicia una sesión desde una rutina activa propia.
@@ -120,9 +189,20 @@ router.post('/', async (req, res) => {
         .limit(1);
       if (!routine) return null;
 
+      const now = new Date();
       const [workout] = await tx
         .insert(workouts)
-        .values({ userId, routineId: routine.id, name: routine.name })
+        .values({
+          userId,
+          routineId: routine.id,
+          name: routine.name,
+          startedAt: now,
+          activeStartedAt: now,
+          timerStatus: 'running',
+          elapsedSeconds: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
         .returning({ id: workouts.id });
 
       const sourceExercises = await tx
@@ -185,6 +265,54 @@ router.post('/', async (req, res) => {
           .json({ error: 'Ya tenés un entrenamiento en curso para esta rutina' });
     }
     console.error('start workout error:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/workouts/:id/pause — detiene sólo el período activo actual.
+router.post('/:id/pause', async (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    await transitionTimer(workoutId, req.session.userId!, 'pause');
+    return res.json(await loadWorkoutWithDetails(workoutId));
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'WORKOUT_NOT_FOUND') {
+        return res.status(404).json({ error: 'Entrenamiento no encontrado' });
+      }
+      if (error.message === 'WORKOUT_COMPLETED') {
+        return res.status(409).json({ error: 'El entrenamiento ya fue finalizado' });
+      }
+    }
+    console.error('pause workout error:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/workouts/:id/resume — comienza un nuevo período activo.
+router.post('/:id/resume', async (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    await transitionTimer(workoutId, req.session.userId!, 'resume');
+    return res.json(await loadWorkoutWithDetails(workoutId));
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'WORKOUT_NOT_FOUND') {
+        return res.status(404).json({ error: 'Entrenamiento no encontrado' });
+      }
+      if (error.message === 'WORKOUT_COMPLETED') {
+        return res.status(409).json({ error: 'El entrenamiento ya fue finalizado' });
+      }
+    }
+    console.error('resume workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -390,9 +518,19 @@ router.post('/:id/complete', async (req, res) => {
       if (workout.status !== 'in_progress') throw new Error('WORKOUT_COMPLETED');
 
       const now = new Date();
+      const elapsedSeconds =
+        workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now);
       await tx
         .update(workouts)
-        .set({ status: 'completed', completedAt: now, updatedAt: now })
+        .set({
+          status: 'completed',
+          completedAt: now,
+          elapsedSeconds,
+          activeStartedAt: null,
+          timerStatus: 'completed',
+          version: workout.version + 1,
+          updatedAt: now,
+        })
         .where(eq(workouts.id, workoutId));
     });
 

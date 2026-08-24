@@ -130,6 +130,11 @@ export const workouts = pgTable(
     routineId: integer('routine_id').references(() => routines.id, { onDelete: 'set null' }),
     name: varchar('name', { length: 255 }).notNull(),
     status: varchar('status', { length: 20 }).notNull().default('in_progress'),
+    // Tiempo efectivo persistido antes del período activo actual. Nunca se
+    // calcula a partir de completedAt - startedAt.
+    elapsedSeconds: integer('elapsed_seconds').notNull().default(0),
+    activeStartedAt: timestamp('active_started_at'),
+    timerStatus: varchar('timer_status', { length: 20 }).notNull().default('running'),
     version: integer('version').notNull().default(1),
     startedAt: timestamp('started_at').defaultNow().notNull(),
     completedAt: timestamp('completed_at'),

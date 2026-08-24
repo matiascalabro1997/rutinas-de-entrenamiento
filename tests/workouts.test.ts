@@ -85,6 +85,181 @@ describe('Entrenamientos activos', () => {
     expect(Number(reloaded.body.exercises[0].sets[1].weight)).toBe(77.5);
   });
 
+  it('inicia el cronómetro en cero y reconstruye un período activo al reabrir', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+
+    expect(started.status).toBe(201);
+    expect(started.body.elapsedSeconds).toBe(0);
+    expect(started.body.timerStatus).toBe('running');
+    expect(started.body.activeStartedAt).toBeTruthy();
+    expect(started.body.serverNow).toBeTruthy();
+
+    // Simula una reapertura después de salir de la aplicación sin pausar.
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '95 seconds' WHERE id = $1",
+      [started.body.id],
+    );
+
+    const reopened = await agentA.get(`/api/workouts/${started.body.id}`);
+    expect(reopened.status).toBe(200);
+    expect(reopened.body.timerStatus).toBe('running');
+    expect(reopened.body.elapsedSeconds).toBeGreaterThanOrEqual(95);
+
+    const recovered = await agentA.get('/api/workouts/active');
+    expect(recovered.status).toBe(200);
+    expect(recovered.body[0].id).toBe(started.body.id);
+    expect(recovered.body[0].elapsedSeconds).toBeGreaterThanOrEqual(95);
+  });
+
+  it('acumula períodos activos, no cuenta una pausa y congela el tiempo al finalizar', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '120 seconds' WHERE id = $1",
+      [started.body.id],
+    );
+    const paused = await agentA.post(`/api/workouts/${started.body.id}/pause`);
+    expect(paused.status).toBe(200);
+    expect(paused.body.timerStatus).toBe('paused');
+    expect(paused.body.activeStartedAt).toBeNull();
+    expect(paused.body.elapsedSeconds).toBeGreaterThanOrEqual(120);
+
+    // Un timestamp viejo no debe afectar un workout pausado al consultar de nuevo.
+    await pool.query(
+      "UPDATE workouts SET updated_at = now() - interval '3 hours' WHERE id = $1",
+      [started.body.id],
+    );
+    const stillPaused = await agentA.get(`/api/workouts/${started.body.id}`);
+    expect(stillPaused.status).toBe(200);
+    expect(stillPaused.body.timerStatus).toBe('paused');
+    expect(stillPaused.body.elapsedSeconds).toBe(paused.body.elapsedSeconds);
+
+    const resumed = await agentA.post(`/api/workouts/${started.body.id}/resume`);
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.timerStatus).toBe('running');
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '35 seconds' WHERE id = $1",
+      [started.body.id],
+    );
+
+    const completed = await agentA.post(`/api/workouts/${started.body.id}/complete`);
+    expect(completed.status).toBe(200);
+    expect(completed.body.status).toBe('completed');
+    expect(completed.body.timerStatus).toBe('completed');
+    expect(completed.body.activeStartedAt).toBeNull();
+    expect(completed.body.elapsedSeconds).toBeGreaterThanOrEqual(paused.body.elapsedSeconds + 35);
+
+    const frozenDuration = completed.body.elapsedSeconds;
+    await pool.query(
+      "UPDATE workouts SET completed_at = now() - interval '6 hours' WHERE id = $1",
+      [started.body.id],
+    );
+    const reopened = await agentA.get(`/api/workouts/${started.body.id}`);
+    expect(reopened.body.elapsedSeconds).toBe(frozenDuration);
+    expect((await agentA.post(`/api/workouts/${started.body.id}/pause`)).status).toBe(409);
+    expect((await agentA.post(`/api/workouts/${started.body.id}/resume`)).status).toBe(409);
+  });
+
+  it('mantiene el tiempo independiente entre workouts de rutinas diferentes', async () => {
+    const firstRoutine = await createRoutineWithSets(agentA);
+    const secondRoutine = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: firstRoutine.id });
+    const second = await agentA.post('/api/workouts').send({ routineId: secondRoutine.id });
+
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '40 seconds' WHERE id = $1",
+      [first.body.id],
+    );
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '140 seconds' WHERE id = $1",
+      [second.body.id],
+    );
+
+    const [firstPaused, secondPaused] = await Promise.all([
+      agentA.post(`/api/workouts/${first.body.id}/pause`),
+      agentA.post(`/api/workouts/${second.body.id}/pause`),
+    ]);
+    expect(firstPaused.status).toBe(200);
+    expect(secondPaused.status).toBe(200);
+    expect(firstPaused.body.elapsedSeconds).toBeGreaterThanOrEqual(40);
+    expect(secondPaused.body.elapsedSeconds).toBeGreaterThanOrEqual(140);
+    expect(secondPaused.body.elapsedSeconds).toBeGreaterThan(firstPaused.body.elapsedSeconds);
+  });
+
+  it('serializa pausas y finalizaciones concurrentes sin duplicar el tiempo', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '75 seconds' WHERE id = $1",
+      [started.body.id],
+    );
+
+    const pauses = await Promise.all([
+      agentA.post(`/api/workouts/${started.body.id}/pause`),
+      agentA.post(`/api/workouts/${started.body.id}/pause`),
+    ]);
+    expect(pauses.map((response) => response.status)).toEqual([200, 200]);
+    expect(pauses[0].body.timerStatus).toBe('paused');
+    expect(pauses[1].body.timerStatus).toBe('paused');
+
+    const storedAfterPause = await pool.query<{ elapsed_seconds: number }>(
+      'SELECT elapsed_seconds FROM workouts WHERE id = $1',
+      [started.body.id],
+    );
+    expect(Number(storedAfterPause.rows[0]?.elapsed_seconds)).toBeGreaterThanOrEqual(75);
+    expect(Number(storedAfterPause.rows[0]?.elapsed_seconds)).toBeLessThan(80);
+
+    const completions = await Promise.all([
+      agentA.post(`/api/workouts/${started.body.id}/complete`),
+      agentA.post(`/api/workouts/${started.body.id}/complete`),
+    ]);
+    expect(completions.map((response) => response.status).sort()).toEqual([200, 409]);
+
+    const authoritative = await agentA.get(`/api/workouts/${started.body.id}`);
+    expect(authoritative.body.status).toBe('completed');
+    expect(authoritative.body.elapsedSeconds).toBe(
+      Number(storedAfterPause.rows[0]?.elapsed_seconds),
+    );
+  });
+
+  it('resuelve una pausa o reanudación concurrente con finalización sin volver a activar el cronómetro', async () => {
+    const routine = await createRoutineWithSets(agentA);
+    const first = await agentA.post('/api/workouts').send({ routineId: routine.id });
+    await pool.query(
+      "UPDATE workouts SET active_started_at = now() - interval '45 seconds' WHERE id = $1",
+      [first.body.id],
+    );
+
+    const [pause, finishWhileRunning] = await Promise.all([
+      agentA.post(`/api/workouts/${first.body.id}/pause`),
+      agentA.post(`/api/workouts/${first.body.id}/complete`),
+    ]);
+    expect(finishWhileRunning.status).toBe(200);
+    expect([200, 409]).toContain(pause.status);
+    const afterFirstRace = await agentA.get(`/api/workouts/${first.body.id}`);
+    expect(afterFirstRace.body.status).toBe('completed');
+    expect(afterFirstRace.body.timerStatus).toBe('completed');
+    expect(afterFirstRace.body.elapsedSeconds).toBeGreaterThanOrEqual(45);
+
+    const secondRoutine = await createRoutineWithSets(agentA);
+    const second = await agentA.post('/api/workouts').send({ routineId: secondRoutine.id });
+    const paused = await agentA.post(`/api/workouts/${second.body.id}/pause`);
+    expect(paused.status).toBe(200);
+
+    const [resume, finishWhilePaused] = await Promise.all([
+      agentA.post(`/api/workouts/${second.body.id}/resume`),
+      agentA.post(`/api/workouts/${second.body.id}/complete`),
+    ]);
+    expect(finishWhilePaused.status).toBe(200);
+    expect([200, 409]).toContain(resume.status);
+    const afterSecondRace = await agentA.get(`/api/workouts/${second.body.id}`);
+    expect(afterSecondRace.body.status).toBe('completed');
+    expect(afterSecondRace.body.timerStatus).toBe('completed');
+    expect(afterSecondRace.body.activeStartedAt).toBeNull();
+  });
+
   it('persiste cambios, nuevas series y eliminaciones al recargar', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
@@ -374,6 +549,8 @@ describe('Entrenamientos activos', () => {
     expect(startedB.status).toBe(201);
     expect((await agentB.post('/api/workouts').send({ routineId: routine.id })).status).toBe(404);
     expect((await agentB.get(`/api/workouts/${workout.id}`)).status).toBe(404);
+    expect((await agentB.post(`/api/workouts/${workout.id}/pause`)).status).toBe(404);
+    expect((await agentB.post(`/api/workouts/${workout.id}/resume`)).status).toBe(404);
     expect(
       (
         await agentB.put(`/api/workouts/${workout.id}`).send({

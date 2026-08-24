@@ -74,6 +74,10 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
+    pause: (id: number) =>
+      request<WorkoutFull>(`/api/workouts/${id}/pause`, { method: 'POST' }),
+    resume: (id: number) =>
+      request<WorkoutFull>(`/api/workouts/${id}/resume`, { method: 'POST' }),
     finish: (id: number) => request<WorkoutFull>(`/api/workouts/${id}/complete`, { method: 'POST' }),
   },
 };
@@ -160,6 +164,7 @@ export interface WorkoutSet {
   weight: string;
   reps: number;
   rir: number | null;
+  completed: boolean;
 }
 
 export interface WorkoutExerciseFull {
@@ -178,6 +183,11 @@ export interface WorkoutFull {
   routineId: number | null;
   name: string;
   status: 'in_progress' | 'completed';
+  elapsedSeconds: number;
+  activeStartedAt: string | null;
+  timerStatus: 'running' | 'paused' | 'completed';
+  /** Server timestamp used to keep the local display independent of clock skew. */
+  serverNow: string;
   version: number;
   startedAt: string;
   completedAt: string | null;

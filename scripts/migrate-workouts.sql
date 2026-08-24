@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS workout_sets (
 ALTER TABLE workout_sets
   ADD COLUMN IF NOT EXISTS completed boolean NOT NULL DEFAULT false;
 
+-- Effective workout time is additive and independent from calendar duration.
+ALTER TABLE workouts
+  ADD COLUMN IF NOT EXISTS elapsed_seconds integer NOT NULL DEFAULT 0;
+ALTER TABLE workouts
+  ADD COLUMN IF NOT EXISTS active_started_at timestamp;
+ALTER TABLE workouts
+  ADD COLUMN IF NOT EXISTS timer_status varchar(20) NOT NULL DEFAULT 'running';
+
 CREATE INDEX IF NOT EXISTS workouts_user_status_idx ON workouts (user_id, status);
 CREATE INDEX IF NOT EXISTS workout_exercises_workout_idx ON workout_exercises (workout_id);
 CREATE INDEX IF NOT EXISTS workout_sets_exercise_idx ON workout_sets (workout_exercise_id);
@@ -55,5 +63,21 @@ UPDATE workouts SET status = 'in_progress' WHERE status = 'active';
 ALTER TABLE workouts ALTER COLUMN status SET DEFAULT 'in_progress';
 CREATE UNIQUE INDEX IF NOT EXISTS workouts_one_in_progress_per_routine_idx
   ON workouts (user_id, routine_id) WHERE status = 'in_progress';
+
+-- Workouts that already existed before the timer feature were active for the
+-- purposes of the old application, so recover their running period from the
+-- original server timestamp. Completed workouts stay frozen at their known
+-- effective value (zero when no timer data existed).
+UPDATE workouts
+SET timer_status = CASE
+      WHEN status = 'completed' THEN 'completed'
+      WHEN timer_status = 'paused' THEN 'paused'
+      ELSE 'running'
+    END,
+    active_started_at = CASE
+      WHEN status = 'in_progress' AND timer_status <> 'paused'
+        THEN COALESCE(active_started_at, started_at)
+      ELSE NULL
+    END;
 
 COMMIT;
