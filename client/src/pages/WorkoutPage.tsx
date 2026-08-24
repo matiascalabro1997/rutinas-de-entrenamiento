@@ -9,6 +9,11 @@ import {
   WorkoutSaveResult,
 } from '../lib/api';
 import NumericInput from '../components/NumericInput';
+import {
+  invalidateWorkoutQueries,
+  syncWorkoutQueries,
+  workoutQueryKeys,
+} from '../lib/queryClient';
 
 type LocalSet = {
   id?: number;
@@ -192,19 +197,28 @@ export default function WorkoutPage() {
   const clockOffsetRef = useRef(0);
 
   const workoutQuery = useQuery({
-    queryKey: ['workouts', workoutId],
+    queryKey: workoutQueryKeys.detail(workoutId),
     queryFn: () => api.workouts.get(workoutId),
     enabled: Number.isFinite(workoutId),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
   });
 
   useEffect(() => {
-    if (workoutQuery.data && initializedIdRef.current !== workoutId) {
-      const local = workoutQuery.data.exercises.map(parseExercise);
+    const refreshedWorkout = workoutQuery.data;
+    if (refreshedWorkout && initializedIdRef.current !== workoutId) {
+      const local = refreshedWorkout.exercises.map(parseExercise);
       initializedIdRef.current = workoutId;
-      workoutVersionRef.current = workoutQuery.data.version;
+      workoutVersionRef.current = refreshedWorkout.version;
       exercisesRef.current = local;
       setExercises(local);
       setInitialized(true);
+    } else if (refreshedWorkout) {
+      // A refresh after another tab pauses or resumes this workout carries a
+      // new optimistic-concurrency version. Keep local pending edits intact,
+      // but save them against that current server version instead of forcing a
+      // 409 that would discard the user's next edit.
+      workoutVersionRef.current = Math.max(workoutVersionRef.current, refreshedWorkout.version);
     }
   }, [workoutQuery.data, workoutId]);
 
@@ -262,7 +276,7 @@ export default function WorkoutPage() {
       if ((error as { status?: number }).status === 409) {
         try {
           const refreshed = await api.workouts.get(workoutId);
-          queryClient.setQueryData(['workouts', workoutId], refreshed);
+          queryClient.setQueryData(workoutQueryKeys.detail(workoutId), refreshed);
           if (refreshed.status !== 'in_progress') {
             savedRevisionRef.current = changeRevisionRef.current;
             setSaveError('Este entrenamiento fue finalizado en otra sesión.');
@@ -345,13 +359,15 @@ export default function WorkoutPage() {
           ? await api.workouts.pause(workoutId)
           : await api.workouts.resume(workoutId);
       workoutVersionRef.current = updated.version;
-      queryClient.setQueryData(['workouts', workoutId], updated);
+      queryClient.setQueryData(workoutQueryKeys.detail(workoutId), updated);
+      await syncWorkoutQueries(queryClient);
     } catch (error) {
       if ((error as { status?: number }).status === 409) {
         try {
           const refreshed = await api.workouts.get(workoutId);
           workoutVersionRef.current = refreshed.version;
-          queryClient.setQueryData(['workouts', workoutId], refreshed);
+          queryClient.setQueryData(workoutQueryKeys.detail(workoutId), refreshed);
+          await invalidateWorkoutQueries(queryClient);
           setTimerError(
             refreshed.status === 'completed'
               ? 'Este entrenamiento fue finalizado en otra sesión.'
@@ -458,16 +474,13 @@ export default function WorkoutPage() {
       timerTransitionRef.current = true;
       await api.workouts.finish(workoutId);
       completionSucceeded = true;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['workouts', 'in-progress'] }),
-        queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] }),
-      ]);
+      await syncWorkoutQueries(queryClient);
       navigate('/routines');
     } catch (error) {
       if ((error as { status?: number }).status === 409) {
         try {
           const refreshed = await api.workouts.get(workoutId);
-          queryClient.setQueryData(['workouts', workoutId], refreshed);
+          queryClient.setQueryData(workoutQueryKeys.detail(workoutId), refreshed);
           workoutVersionRef.current = refreshed.version;
           if (refreshed.status !== 'in_progress') {
             completedRemotely = true;

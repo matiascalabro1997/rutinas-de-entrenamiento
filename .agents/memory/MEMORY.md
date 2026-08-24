@@ -2,3 +2,4 @@
 - [Session store in tests](session-store-tests.md) — use MemoryStore in NODE_ENV=test; connect-pg-simple creates its table async, causing silent save failures in early tests.
 - [Drizzle test configuration](drizzle-test-configuration.md) — installed Drizzle Kit uses the modern PostgreSQL dialect/url config format for the explicit test setup.
 - [Legacy workout timer migration](legacy-workout-timer-migration.md) — pre-timer in-progress workouts must resume paused at zero; calendar time is not reliable effective time.
+- [Workout state synchronization](workout-state-synchronization.md) — timer transitions must invalidate caches locally and across open browser tabs.

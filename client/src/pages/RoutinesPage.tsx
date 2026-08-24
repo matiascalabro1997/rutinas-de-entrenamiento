@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, RoutineSummary, WorkoutFull } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import {
+  invalidateWorkoutQueries,
+  syncWorkoutQueries,
+  workoutQueryKeys,
+} from '../lib/queryClient';
 
 export default function RoutinesPage() {
   const navigate = useNavigate();
@@ -19,8 +24,10 @@ export default function RoutinesPage() {
     queryFn: api.routines.list,
   });
   const { data: inProgressWorkouts = [] } = useQuery({
-    queryKey: ['workouts', 'in-progress'],
+    queryKey: workoutQueryKeys.inProgress,
     queryFn: api.workouts.inProgress,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
   });
 
   const createMutation = useMutation({
@@ -47,18 +54,18 @@ export default function RoutinesPage() {
   });
   const startWorkoutMutation = useMutation({
     mutationFn: api.workouts.start,
-    onSuccess: (workout) => {
+    onSuccess: async (workout) => {
       setWorkoutError(null);
-      queryClient.setQueryData<WorkoutFull[]>(['workouts', 'in-progress'], (current = []) => [
-        workout,
-        ...current.filter((item) => item.id !== workout.id),
-      ]);
-      queryClient.setQueryData(['workouts', workout.id], workout);
+      // Starting a workout also pauses any other in-progress workout for the
+      // user. The response only contains the newly started workout, so the
+      // list and any open workout details must come from the server again.
+      queryClient.setQueryData(workoutQueryKeys.detail(workout.id), workout);
+      await syncWorkoutQueries(queryClient);
       navigate(`/workouts/${workout.id}`);
     },
     onError: (error) => {
       setWorkoutError(error instanceof Error ? error.message : 'No se pudo iniciar el entrenamiento');
-      void queryClient.invalidateQueries({ queryKey: ['workouts', 'in-progress'] });
+      void invalidateWorkoutQueries(queryClient);
     },
   });
 
@@ -260,9 +267,21 @@ export default function RoutinesPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="truncate font-semibold text-gray-900">{workout.name}</h2>
-                    <p className="mt-0.5 text-sm text-gray-500">Continuar donde lo dejaste</p>
+                    <p className="mt-0.5 text-sm text-gray-500">
+                      {workout.timerStatus === 'running'
+                        ? 'En ejecución'
+                        : 'Pausado · continuar donde lo dejaste'}
+                    </p>
                   </div>
-                  <span className="btn-primary flex-shrink-0 px-3 py-2 text-sm">Continuar</span>
+                  <span
+                    className={`flex-shrink-0 rounded-xl px-3 py-2 text-sm font-semibold ${
+                      workout.timerStatus === 'running'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-white text-brand-700'
+                    }`}
+                  >
+                    Continuar
+                  </span>
                 </div>
               </button>
             ))}
