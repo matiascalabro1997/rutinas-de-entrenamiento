@@ -1,0 +1,78 @@
+Implementá la Task #12: **Sincronización de estado entre workouts en ejecución**.
+
+El diagnóstico previo confirmó que la garantía de base de datos y el backend funcionan correctamente: PostgreSQL permite como máximo un workout `running` por usuario. El problema está en el frontend: cuando `start` o `resume` pausa otro workout en el servidor, la caché de React Query del workout anterior queda desactualizada y puede seguir mostrando su reloj como `running`.
+
+Quiero corregir esto sin modificar la regla de negocio ni el modelo de datos.
+
+### Comportamiento esperado
+
+Para un usuario:
+
+* Puede tener múltiples workouts `in_progress`.
+* Puede tener como máximo uno `running`.
+* Cuando inicia o reanuda un workout, cualquier otro workout `running` pasa a `paused` en el servidor.
+* La interfaz debe reflejar inmediatamente ese estado.
+* Nunca debería parecer que dos workouts están corriendo simultáneamente.
+* El servidor debe seguir siendo la fuente de verdad.
+
+### Implementación
+
+Después de `start` o `resume`:
+
+1. Invalidar/refrescar `['workouts', 'in-progress']`.
+2. Actualizar o invalidar las queries individuales de los workouts `in_progress` afectados.
+3. Asegurar que cualquier pantalla que tenga abierto otro workout refleje que pasó a `paused`.
+4. Al volver a una pantalla de workout existente, refrescar su estado desde el servidor si corresponde.
+5. Al volver a hacer visible la aplicación/pestaña después de haber estado fuera, refrescar el estado de los workouts en progreso para evitar estados locales obsoletos.
+6. Si es apropiado para la arquitectura actual, implementar sincronización inmediata entre pestañas/ventanas mediante `BroadcastChannel` o mecanismo equivalente. No agregues complejidad innecesaria si React Query puede resolverlo de forma robusta.
+
+### Importante
+
+No cambies:
+
+* la restricción de un solo `running` por usuario;
+* la lógica de locks/transacciones del backend;
+* el modelo de datos;
+* el funcionamiento del timer;
+* autosave;
+* pausa/reanudación;
+* snapshots.
+
+No hagas cambios destructivos en la base de desarrollo.
+
+### UX
+
+Si Workout A estaba corriendo y el usuario reanuda Workout B:
+
+* A debe pasar visualmente a `paused`.
+* B debe quedar `running`.
+* Si el usuario vuelve a A, debe ver inmediatamente que está pausado.
+* Si vuelve a B, debe seguir corriendo correctamente.
+
+También debe funcionar si los workouts están abiertos en distintas pestañas.
+
+### Tests
+
+Agregá tests apropiados para la sincronización del frontend y cualquier comportamiento que sea testeable en la arquitectura actual.
+
+Como mínimo verificá:
+
+* reanudar B pausa A en servidor y UI;
+* iniciar B mientras A corre;
+* volver a una pantalla previamente cargada;
+* recuperación al volver a hacer visible la aplicación;
+* múltiples pestañas si se implementa `BroadcastChannel`;
+* no introducir regresiones en pause/resume;
+* mantener el aislamiento entre usuarios.
+
+Antes de implementar, revisá el código existente y elegí la solución más simple y robusta compatible con la arquitectura actual.
+
+Al finalizar ejecutá:
+
+* `npm test`
+* `npx tsc --noEmit`
+* `npm run build`
+
+y confirmá que la aplicación reinicia correctamente.
+
+No modifiques datos existentes salvo que sea estrictamente necesario para tests. No ejecutes operaciones destructivas sobre la base de desarrollo.
