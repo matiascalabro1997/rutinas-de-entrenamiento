@@ -3,7 +3,7 @@ name: Session store in tests
 description: Why the project uses MemoryStore in test mode instead of connect-pg-simple.
 ---
 
-**Rule:** In `server/index.ts`, use `new session.MemoryStore()` when `NODE_ENV === 'test'`.
+**Rule:** In `apps/api/src/index.ts`, use `new session.MemoryStore()` when `NODE_ENV === 'test'`.
 
 **Why:** `connect-pg-simple` with `createTableIfMissing: true` creates the session table asynchronously in its constructor. The first `req.session.save()` calls during tests can race against this table creation, fail silently, and leave the session unsaved — causing all subsequent requests in the same test agent to return 401.
 
