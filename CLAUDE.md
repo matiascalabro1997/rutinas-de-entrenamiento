@@ -23,17 +23,21 @@ estaban duplicados a mano en `client/src/lib/api.ts` y ya habían divergido.
 
 Todos desde la raíz:
 
-| Comando | Qué hace |
-|---|---|
-| `npm run dev` | shared en watch + API (`:3001`) + Vite (`:5000`, proxy a la API) |
-| `npm run build` | shared → api (`tsc`) → web (`vite build`) |
-| `npm start` | server de producción, sirve también el SPA |
-| `npm test` | tests de integración de la API |
-| `npm run typecheck` | los tres workspaces |
-| `npm run lint` / `npm run format` | ESLint / Prettier |
-| `npm run db:push` | aplica el schema a `DATABASE_URL` |
-| `npm run db:seed` | carga grupos musculares y catálogo de ejercicios |
-| `npm run db:setup:test` | prepara la base de tests (explícito, nunca automático) |
+| Comando                                   | Qué hace                                                         |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `npm run dev`                             | shared en watch + API (`:3001`) + Vite (`:5000`, proxy a la API) |
+| `npm run build`                           | shared → api (`tsc`) → web (`vite build`)                        |
+| `npm start`                               | server de producción, sirve también el SPA                       |
+| `npm test`                                | tests de integración de la API                                   |
+| `npm run typecheck`                       | los tres workspaces                                              |
+| `npm run format` / `npm run format:check` | Prettier                                                         |
+| `npm run db:push`                         | aplica el schema a `DATABASE_URL`                                |
+| `npm run db:seed`                         | carga grupos musculares y catálogo de ejercicios                 |
+| `npm run db:setup:test`                   | prepara la base de tests (explícito, nunca automático)           |
+
+No hay ESLint. `typescript-eslint` rechaza en runtime cualquier TypeScript 7
+(«does not support TS 7.0»), y el proyecto usa 7.0.2; forzar la instalación no
+sirve. Revisar cuando publiquen soporte. Prettier sí está y cubre el formato.
 
 Las variables salen de un `.env` en la raíz (ver `.env.example`), cargado con el
 soporte nativo de Node. No hay dependencia de `dotenv`.
