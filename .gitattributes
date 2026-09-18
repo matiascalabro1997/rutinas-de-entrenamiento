@@ -1,0 +1,16 @@
+# El repo guarda y entrega todo con LF, en cualquier sistema operativo.
+#
+# Sin esto, en Windows git checkoutea con CRLF y `npm run format:check` falla
+# siempre: Prettier espera LF y marca cada archivo como mal formateado, aunque
+# el contenido sea idéntico al que acaba de escribir.
+* text=auto eol=lf
+
+# Binarios: que git no toque los finales de línea.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
