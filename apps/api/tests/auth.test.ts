@@ -65,9 +65,7 @@ describe('Autenticación', () => {
 
   describe('POST /api/auth/login', () => {
     beforeEach(async () => {
-      await request(app)
-        .post(REGISTER_URL)
-        .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
+      await request(app).post(REGISTER_URL).send({ email: TEST_EMAIL, password: TEST_PASSWORD });
     });
 
     it('hace login con credenciales correctas', async () => {

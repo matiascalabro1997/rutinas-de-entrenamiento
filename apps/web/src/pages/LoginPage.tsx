@@ -68,11 +68,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>

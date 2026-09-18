@@ -8,6 +8,7 @@ description: Tests and dev share the same DATABASE_URL; cleanDb() must be guarde
 **Why:** The former shared connection made `cleanDb()` delete real users and routines. A `NODE_ENV` check alone is insufficient because the test command deliberately sets that value. PostgreSQL access is therefore isolated both by a distinct database role and by runtime verification of the connected database and role before cleanup.
 
 **How to apply:**
+
 - Test processes must omit `DATABASE_URL` and require `TEST_DATABASE_URL`.
 - Fail before opening a pool if the test URL is missing, names the wrong database/user, or matches a supplied development URL.
 - Before test hooks and before every cleanup, query PostgreSQL and require the exact test database and role identity.

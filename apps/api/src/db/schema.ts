@@ -143,9 +143,7 @@ export const workouts = pgTable(
   },
   (t) => ({
     userStatusIdx: index('workouts_user_status_idx').on(t.userId, t.status),
-    oneInProgressWorkoutPerRoutineAndUser: uniqueIndex(
-      'workouts_one_in_progress_per_routine_idx',
-    )
+    oneInProgressWorkoutPerRoutineAndUser: uniqueIndex('workouts_one_in_progress_per_routine_idx')
       .on(t.userId, t.routineId)
       .where(sql`${t.status} = 'in_progress'`),
     oneRunningWorkoutPerUser: uniqueIndex('workouts_one_running_per_user_idx')
@@ -213,7 +211,10 @@ export const muscleGroupsRelations = relations(muscleGroups, ({ many }) => ({
 }));
 
 export const exercisesRelations = relations(exercises, ({ one, many }) => ({
-  muscleGroup: one(muscleGroups, { fields: [exercises.muscleGroupId], references: [muscleGroups.id] }),
+  muscleGroup: one(muscleGroups, {
+    fields: [exercises.muscleGroupId],
+    references: [muscleGroups.id],
+  }),
   user: one(users, { fields: [exercises.userId], references: [users.id] }),
   routineExercises: many(routineExercises),
 }));

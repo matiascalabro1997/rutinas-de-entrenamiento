@@ -7,7 +7,10 @@ export const workoutQueryKeys = {
 };
 
 const workoutSyncMessageType = 'workout-state-changed';
-type WorkoutSyncChannel = Pick<BroadcastChannel, 'addEventListener' | 'removeEventListener' | 'postMessage'>;
+type WorkoutSyncChannel = Pick<
+  BroadcastChannel,
+  'addEventListener' | 'removeEventListener' | 'postMessage'
+>;
 
 let workoutSyncChannel: WorkoutSyncChannel | null | undefined;
 

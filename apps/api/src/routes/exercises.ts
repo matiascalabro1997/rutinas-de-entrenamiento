@@ -10,10 +10,7 @@ const router = Router();
 // GET /api/muscle-groups
 router.get('/muscle-groups', async (_req, res) => {
   try {
-    const groups = await db
-      .select()
-      .from(muscleGroups)
-      .orderBy(muscleGroups.name);
+    const groups = await db.select().from(muscleGroups).orderBy(muscleGroups.name);
     return res.json(groups);
   } catch (err) {
     console.error('muscle-groups error:', err);
@@ -39,9 +36,7 @@ router.get('/exercises', requireAuth, async (req, res) => {
       .where(or(isNull(exercises.userId), eq(exercises.userId, userId)))
       .orderBy(muscleGroups.name, exercises.name);
 
-    return res.json(
-      list.map((e) => ({ ...e, isCustom: e.isCustom !== null })),
-    );
+    return res.json(list.map((e) => ({ ...e, isCustom: e.isCustom !== null })));
   } catch (err) {
     console.error('exercises error:', err);
     return res.status(500).json({ error: 'Error interno del servidor' });

@@ -53,7 +53,11 @@ async function seed() {
     { name: 'Sentadilla búlgara', muscleGroupId: byName('Piernas').id, isBodyweight: false },
     { name: 'Estocada', muscleGroupId: byName('Piernas').id, isBodyweight: false },
     { name: 'Peso muerto rumano', muscleGroupId: byName('Piernas').id, isBodyweight: false },
-    { name: 'Elevación de talones (gemelos)', muscleGroupId: byName('Piernas').id, isBodyweight: false },
+    {
+      name: 'Elevación de talones (gemelos)',
+      muscleGroupId: byName('Piernas').id,
+      isBodyweight: false,
+    },
     // Hombros
     { name: 'Press militar', muscleGroupId: byName('Hombros').id, isBodyweight: false },
     { name: 'Elevaciones laterales', muscleGroupId: byName('Hombros').id, isBodyweight: false },
@@ -66,7 +70,11 @@ async function seed() {
     { name: 'Curl en banco Scott', muscleGroupId: byName('Bíceps').id, isBodyweight: false },
     // Tríceps
     { name: 'Press francés', muscleGroupId: byName('Tríceps').id, isBodyweight: false },
-    { name: 'Extensión de tríceps en polea', muscleGroupId: byName('Tríceps').id, isBodyweight: false },
+    {
+      name: 'Extensión de tríceps en polea',
+      muscleGroupId: byName('Tríceps').id,
+      isBodyweight: false,
+    },
     { name: 'Dips en paralelas', muscleGroupId: byName('Tríceps').id, isBodyweight: true },
     { name: 'Patada de tríceps', muscleGroupId: byName('Tríceps').id, isBodyweight: false },
     // Espalda
@@ -86,21 +94,29 @@ async function seed() {
     // Abdominales
     { name: 'Crunch en máquina', muscleGroupId: byName('Abdominales').id, isBodyweight: false },
     { name: 'Plancha', muscleGroupId: byName('Abdominales').id, isBodyweight: true },
-    { name: 'Elevación de piernas colgado', muscleGroupId: byName('Abdominales').id, isBodyweight: true },
+    {
+      name: 'Elevación de piernas colgado',
+      muscleGroupId: byName('Abdominales').id,
+      isBodyweight: true,
+    },
     { name: 'Rueda abdominal', muscleGroupId: byName('Abdominales').id, isBodyweight: true },
     // Aeróbico
-    { name: 'Caminata en cinta', muscleGroupId: byName('Ejercicio aeróbico').id, isBodyweight: true },
-    { name: 'Bicicleta estática', muscleGroupId: byName('Ejercicio aeróbico').id, isBodyweight: true },
+    {
+      name: 'Caminata en cinta',
+      muscleGroupId: byName('Ejercicio aeróbico').id,
+      isBodyweight: true,
+    },
+    {
+      name: 'Bicicleta estática',
+      muscleGroupId: byName('Ejercicio aeróbico').id,
+      isBodyweight: true,
+    },
     { name: 'Remo ergómetro', muscleGroupId: byName('Ejercicio aeróbico').id, isBodyweight: true },
     { name: 'Elíptica', muscleGroupId: byName('Ejercicio aeróbico').id, isBodyweight: true },
   ];
 
   for (const ex of catalogExercises) {
-    const existing = await db
-      .select()
-      .from(exercises)
-      .where(eq(exercises.name, ex.name))
-      .limit(1);
+    const existing = await db.select().from(exercises).where(eq(exercises.name, ex.name)).limit(1);
 
     if (existing.length === 0) {
       await db.insert(exercises).values({ ...ex, userId: null });

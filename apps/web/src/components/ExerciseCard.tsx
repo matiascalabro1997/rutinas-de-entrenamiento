@@ -101,14 +101,28 @@ export default function ExerciseCard({
           >
             {collapsed ? (
               /* Chevron-down: contenido oculto → tap para expandir */
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                   strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4"
+              >
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             ) : (
               /* Chevron-up: contenido visible → tap para colapsar */
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                   strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4"
+              >
                 <polyline points="18 15 12 9 6 15" />
               </svg>
             )}

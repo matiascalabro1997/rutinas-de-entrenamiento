@@ -77,8 +77,7 @@ app.use('/api', exercisesRoutes);
 
 if (IS_PRODUCTION) {
   // Desde apps/api/dist/index.js hasta el build de Vite en apps/web/dist.
-  const distPath =
-    process.env.WEB_DIST_PATH ?? path.join(__dirname, '..', '..', 'web', 'dist');
+  const distPath = process.env.WEB_DIST_PATH ?? path.join(__dirname, '..', '..', 'web', 'dist');
 
   app.use(express.static(distPath));
 

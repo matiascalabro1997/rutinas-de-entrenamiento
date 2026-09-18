@@ -9,11 +9,7 @@ import {
   WorkoutSaveResult,
 } from '../lib/api';
 import NumericInput from '../components/NumericInput';
-import {
-  invalidateWorkoutQueries,
-  syncWorkoutQueries,
-  workoutQueryKeys,
-} from '../lib/queryClient';
+import { invalidateWorkoutQueries, syncWorkoutQueries, workoutQueryKeys } from '../lib/queryClient';
 
 type LocalSet = {
   id?: number;
@@ -138,7 +134,9 @@ function FinishedWorkout({ workout, onBack }: { workout: WorkoutFull; onBack: ()
                 {exercise.sets.map((set) => (
                   <div key={set.id} className="flex items-center justify-between py-3 text-sm">
                     <span className="text-gray-600">Serie {set.setNumber}</span>
-                    <span className={set.completed ? 'font-semibold text-emerald-700' : 'text-gray-400'}>
+                    <span
+                      className={set.completed ? 'font-semibold text-emerald-700' : 'text-gray-400'}
+                    >
                       {set.completed ? 'Realizada' : 'Pendiente'}
                     </span>
                   </div>
@@ -153,9 +151,14 @@ function FinishedWorkout({ workout, onBack }: { workout: WorkoutFull; onBack: ()
 }
 
 function Status({ status, error }: { status: SaveStatus; error: string | null }) {
-  if (status === 'saving') return <span className="text-xs font-medium text-gray-400">Guardando</span>;
-  if (status === 'saved') return <span className="text-xs font-medium text-green-700">Guardado</span>;
-  if (status === 'error') return <span className="text-xs font-medium text-red-600">{error ?? 'No se pudo guardar'}</span>;
+  if (status === 'saving')
+    return <span className="text-xs font-medium text-gray-400">Guardando</span>;
+  if (status === 'saved')
+    return <span className="text-xs font-medium text-green-700">Guardado</span>;
+  if (status === 'error')
+    return (
+      <span className="text-xs font-medium text-red-600">{error ?? 'No se pudo guardar'}</span>
+    );
   return <span className="text-xs font-medium text-gray-400">Sin cambios</span>;
 }
 
@@ -289,7 +292,9 @@ export default function WorkoutPage() {
           workoutVersionRef.current = refreshed.version;
           changeRevisionRef.current = 0;
           savedRevisionRef.current = 0;
-          setSaveError('Hubo cambios en otra sesión. Se recargó el entrenamiento; aplicá tus cambios de nuevo.');
+          setSaveError(
+            'Hubo cambios en otra sesión. Se recargó el entrenamiento; aplicá tus cambios de nuevo.',
+          );
         } catch {
           setSaveError('El entrenamiento cambió en otra sesión. Recargá para continuar.');
         }
@@ -321,9 +326,12 @@ export default function WorkoutPage() {
     }, 650);
   }, [initialized]);
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   async function flushSave() {
     if (timerRef.current) {
@@ -377,7 +385,9 @@ export default function WorkoutPage() {
           setTimerError('El entrenamiento cambió en otra sesión. Recargá para continuar.');
         }
       } else {
-        setTimerError(error instanceof Error ? error.message : 'No se pudo actualizar el cronómetro');
+        setTimerError(
+          error instanceof Error ? error.message : 'No se pudo actualizar el cronómetro',
+        );
       }
     } finally {
       timerTransitionRef.current = false;
@@ -459,7 +469,9 @@ export default function WorkoutPage() {
     if (!exercise || exercise.sets.length <= 1) return;
     updateExercise(exerciseIndex, {
       ...exercise,
-      sets: exercise.sets.filter((_, i) => i !== setIndex).map((set, i) => ({ ...set, setNumber: i + 1 })),
+      sets: exercise.sets
+        .filter((_, i) => i !== setIndex)
+        .map((set, i) => ({ ...set, setNumber: i + 1 })),
     });
   }
 
@@ -491,7 +503,9 @@ export default function WorkoutPage() {
           // Conserva el mensaje original si no se puede confirmar el estado remoto.
         }
       }
-      setFinishError(error instanceof Error ? error.message : 'No se pudo finalizar el entrenamiento');
+      setFinishError(
+        error instanceof Error ? error.message : 'No se pudo finalizar el entrenamiento',
+      );
     } finally {
       timerTransitionRef.current = false;
       setIsFinishing(false);
@@ -545,8 +559,12 @@ export default function WorkoutPage() {
           <p className="font-semibold text-gray-900">No se pudo abrir el entrenamiento</p>
           <p className="mt-2 text-sm text-gray-500">Comprueba tu conexión e inténtalo de nuevo.</p>
           <div className="mt-5 flex justify-center gap-2">
-            <button type="button" onClick={() => workoutQuery.refetch()} className="btn-primary">Reintentar</button>
-            <button type="button" onClick={() => navigate('/routines')} className="btn-secondary">Rutinas</button>
+            <button type="button" onClick={() => workoutQuery.refetch()} className="btn-primary">
+              Reintentar
+            </button>
+            <button type="button" onClick={() => navigate('/routines')} className="btn-secondary">
+              Rutinas
+            </button>
           </div>
         </div>
       </main>
@@ -562,10 +580,7 @@ export default function WorkoutPage() {
   const elapsedSeconds =
     workout.elapsedSeconds +
     (workout.timerStatus === 'running' && workout.serverNow
-      ? Math.max(
-          0,
-          Math.floor((serverAlignedNow - new Date(workout.serverNow).getTime()) / 1000),
-        )
+      ? Math.max(0, Math.floor((serverAlignedNow - new Date(workout.serverNow).getTime()) / 1000))
       : 0);
   const totalSets = exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
   const completedSets = exercises.reduce(
@@ -577,11 +592,18 @@ export default function WorkoutPage() {
     <main className="min-h-screen bg-gray-50 pb-28">
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-gray-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
-          <button type="button" onClick={leaveWorkout} disabled={isLeaving || isFinishing} className="btn-ghost -ml-2 px-2 text-sm disabled:opacity-50">
+          <button
+            type="button"
+            onClick={leaveWorkout}
+            disabled={isLeaving || isFinishing}
+            className="btn-ghost -ml-2 px-2 text-sm disabled:opacity-50"
+          >
             {isLeaving ? 'Guardando…' : 'Volver'}
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Sesión en curso</p>
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+              Sesión en curso
+            </p>
             <h1 className="truncate text-lg font-bold text-gray-900">{title}</h1>
           </div>
           <Status status={saveStatus} error={saveError} />
@@ -591,12 +613,16 @@ export default function WorkoutPage() {
       <div className="mx-auto max-w-lg px-4 pt-5">
         <div className="mb-5 flex items-end justify-between">
           <div>
-            <p className="text-sm text-gray-500">{exercises.length} {exercises.length === 1 ? 'ejercicio' : 'ejercicios'}</p>
+            <p className="text-sm text-gray-500">
+              {exercises.length} {exercises.length === 1 ? 'ejercicio' : 'ejercicios'}
+            </p>
             <p className="mt-1 text-xs text-gray-400">
               {completedSets}/{totalSets} series realizadas
             </p>
           </div>
-          <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">Entrenando</div>
+          <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+            Entrenando
+          </div>
         </div>
 
         <section className="card mb-5 border-brand-100 bg-white p-4" aria-label="Cronómetro">
@@ -605,15 +631,20 @@ export default function WorkoutPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">
                 Tiempo efectivo
               </p>
-              <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-gray-900" aria-live="polite">
+              <p
+                className="mt-1 font-mono text-4xl font-bold tabular-nums text-gray-900"
+                aria-live="polite"
+              >
                 {formatDuration(elapsedSeconds)}
               </p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              workout.timerStatus === 'running'
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-amber-50 text-amber-700'
-            }`}>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                workout.timerStatus === 'running'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-amber-50 text-amber-700'
+              }`}
+            >
               {workout.timerStatus === 'running' ? 'En ejecución' : 'Pausado'}
             </span>
           </div>
@@ -640,14 +671,19 @@ export default function WorkoutPage() {
           {exercises.map((exercise, exerciseIndex) => (
             <section key={exercise.id} className="card overflow-hidden">
               <div className="border-b border-gray-100 px-4 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Ejercicio {exerciseIndex + 1}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+                  Ejercicio {exerciseIndex + 1}
+                </p>
                 <h2 className="mt-1 text-lg font-bold text-gray-900">{exercise.exerciseName}</h2>
-                {exercise.muscleGroupName && <p className="mt-0.5 text-xs text-gray-500">{exercise.muscleGroupName}</p>}
+                {exercise.muscleGroupName && (
+                  <p className="mt-0.5 text-xs text-gray-500">{exercise.muscleGroupName}</p>
+                )}
               </div>
               <div className="px-3">
                 <div className="flex items-center justify-between border-b border-gray-100 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    {exercise.sets.filter((set) => set.completed).length}/{exercise.sets.length} realizadas
+                    {exercise.sets.filter((set) => set.completed).length}/{exercise.sets.length}{' '}
+                    realizadas
                   </p>
                 </div>
                 {exercise.sets.map((set, setIndex) => (
@@ -659,7 +695,9 @@ export default function WorkoutPage() {
                       <p className="text-sm font-bold text-gray-800">Serie {set.setNumber}</p>
                       <button
                         type="button"
-                        onClick={() => updateSet(exerciseIndex, setIndex, { completed: !set.completed })}
+                        onClick={() =>
+                          updateSet(exerciseIndex, setIndex, { completed: !set.completed })
+                        }
                         className={`flex min-h-11 items-center gap-2 rounded-xl border-2 px-3 text-sm font-bold transition-colors active:scale-[0.98] ${
                           set.completed
                             ? 'border-emerald-600 bg-emerald-600 text-white'
@@ -671,7 +709,9 @@ export default function WorkoutPage() {
                         <span
                           aria-hidden="true"
                           className={`flex h-6 w-6 items-center justify-center rounded-full border-2 text-base leading-none ${
-                            set.completed ? 'border-white bg-white text-emerald-700' : 'border-gray-400 text-transparent'
+                            set.completed
+                              ? 'border-white bg-white text-emerald-700'
+                              : 'border-gray-400 text-transparent'
                           }`}
                         >
                           ✓
@@ -684,36 +724,83 @@ export default function WorkoutPage() {
                         {exercise.isBodyweight ? (
                           <span className="text-sm font-medium text-gray-500">Peso corporal</span>
                         ) : (
-                          <NumericInput value={set.weight} onChange={(value) => updateSet(exerciseIndex, setIndex, { weight: value })} step={2.5} decimals={1} max={999.5} />
+                          <NumericInput
+                            value={set.weight}
+                            onChange={(value) =>
+                              updateSet(exerciseIndex, setIndex, { weight: value })
+                            }
+                            step={2.5}
+                            decimals={1}
+                            max={999.5}
+                          />
                         )}
                       </SetMetricField>
                       <SetMetricField label="Reps">
-                        <NumericInput value={set.reps} onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })} max={999} />
+                        <NumericInput
+                          value={set.reps}
+                          onChange={(value) => updateSet(exerciseIndex, setIndex, { reps: value })}
+                          max={999}
+                        />
                       </SetMetricField>
                       <SetMetricField label="RIR">
-                        <NumericInput value={set.rir ?? 0} onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })} max={10} />
+                        <NumericInput
+                          value={set.rir ?? 0}
+                          onChange={(value) => updateSet(exerciseIndex, setIndex, { rir: value })}
+                          max={10}
+                        />
                       </SetMetricField>
                     </div>
                     <div className="mt-1 flex justify-end">
-                      <button type="button" onClick={() => removeSet(exerciseIndex, setIndex)} disabled={exercise.sets.length <= 1} className="px-2 text-xs text-gray-300 transition-colors active:text-red-500 disabled:opacity-20" aria-label={`Eliminar serie ${set.setNumber}`}>Eliminar</button>
+                      <button
+                        type="button"
+                        onClick={() => removeSet(exerciseIndex, setIndex)}
+                        disabled={exercise.sets.length <= 1}
+                        className="px-2 text-xs text-gray-300 transition-colors active:text-red-500 disabled:opacity-20"
+                        aria-label={`Eliminar serie ${set.setNumber}`}
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addSet(exerciseIndex)} className="w-full border-t border-gray-100 px-4 py-3 text-sm font-semibold text-brand-700 active:bg-brand-50">+ Añadir serie</button>
+              <button
+                type="button"
+                onClick={() => addSet(exerciseIndex)}
+                className="w-full border-t border-gray-100 px-4 py-3 text-sm font-semibold text-brand-700 active:bg-brand-50"
+              >
+                + Añadir serie
+              </button>
             </section>
           ))}
         </div>
 
-        {finishError && <p className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{finishError}</p>}
+        {finishError && (
+          <p className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {finishError}
+          </p>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-gray-50/95 p-4 backdrop-blur">
         <div className="mx-auto max-w-lg">
-          <button type="button" onClick={finishWorkout} disabled={isFinishing || isTimerActionPending} className="btn-primary w-full py-3.5">
+          <button
+            type="button"
+            onClick={finishWorkout}
+            disabled={isFinishing || isTimerActionPending}
+            className="btn-primary w-full py-3.5"
+          >
             {isFinishing ? 'Finalizando…' : 'Finalizar entrenamiento'}
           </button>
-          {saveStatus === 'error' && <button type="button" onClick={() => void saveRef.current()} className="mt-2 w-full text-center text-xs font-semibold text-red-600">Reintentar guardado</button>}
+          {saveStatus === 'error' && (
+            <button
+              type="button"
+              onClick={() => void saveRef.current()}
+              className="mt-2 w-full text-center text-xs font-semibold text-red-600"
+            >
+              Reintentar guardado
+            </button>
+          )}
         </div>
       </div>
     </main>

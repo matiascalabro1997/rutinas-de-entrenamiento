@@ -8,8 +8,7 @@ import {
 import { cleanDb } from './setup';
 
 const isolatedTestUrl =
-  `postgresql://${TEST_DATABASE_USER}:safe-password@example.test/` +
-  TEST_DATABASE_NAME;
+  `postgresql://${TEST_DATABASE_USER}:safe-password@example.test/` + TEST_DATABASE_NAME;
 const developmentUrl = 'postgresql://development:password@example.test/heliumdb';
 
 describe('Aislamiento de base de datos de tests', () => {

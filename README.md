@@ -62,18 +62,18 @@ Cliente en http://localhost:5000, API en el 3001 (el dev server hace de proxy).
 
 ## Comandos
 
-| Comando | Qué hace |
-|---|---|
-| `npm run dev` | shared en watch + API + cliente |
-| `npm run build` | build de producción de los tres workspaces |
-| `npm start` | server de producción, sirve también el cliente |
-| `npm test` | todos los tests |
-| `npm run test:web` | sólo los del cliente (no requieren base) |
-| `npm run typecheck` | los tres workspaces |
-| `npm run format` | Prettier |
-| `npm run db:push` | aplica el esquema a la base de desarrollo |
-| `npm run db:seed` | carga grupos musculares y ejercicios |
-| `npm run db:setup:test` | prepara la base de tests |
+| Comando                 | Qué hace                                       |
+| ----------------------- | ---------------------------------------------- |
+| `npm run dev`           | shared en watch + API + cliente                |
+| `npm run build`         | build de producción de los tres workspaces     |
+| `npm start`             | server de producción, sirve también el cliente |
+| `npm test`              | todos los tests                                |
+| `npm run test:web`      | sólo los del cliente (no requieren base)       |
+| `npm run typecheck`     | los tres workspaces                            |
+| `npm run format`        | Prettier                                       |
+| `npm run db:push`       | aplica el esquema a la base de desarrollo      |
+| `npm run db:seed`       | carga grupos musculares y ejercicios           |
+| `npm run db:setup:test` | prepara la base de tests                       |
 
 ## Notas
 

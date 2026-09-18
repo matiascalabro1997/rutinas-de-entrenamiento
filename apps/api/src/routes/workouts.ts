@@ -24,9 +24,9 @@ class ActiveWorkoutExistsError extends Error {}
 function isUniqueViolation(error: unknown) {
   return Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: string }).code === '23505',
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === '23505',
   );
 }
 
@@ -80,10 +80,7 @@ function activeSecondsSince(startedAt: Date | null, now: Date) {
   return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
 }
 
-function pausedTimerValues(
-  workout: typeof workouts.$inferSelect,
-  now: Date,
-) {
+function pausedTimerValues(workout: typeof workouts.$inferSelect, now: Date) {
   return {
     elapsedSeconds: workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now),
     activeStartedAt: null,
@@ -93,11 +90,7 @@ function pausedTimerValues(
   };
 }
 
-async function transitionTimer(
-  workoutId: number,
-  userId: number,
-  action: 'pause' | 'resume',
-) {
+async function transitionTimer(workoutId: number, userId: number, action: 'pause' | 'resume') {
   await db.transaction(async (tx) => {
     // Lock the user first so transitions serialize even when the user has no
     // existing workout rows yet. Then lock workouts in a stable order to avoid
@@ -286,9 +279,7 @@ router.post('/', async (req, res) => {
     return res.status(201).json(workout);
   } catch (error) {
     if (error instanceof ActiveWorkoutExistsError || isUniqueViolation(error)) {
-        return res
-          .status(409)
-          .json({ error: 'Ya tenés un entrenamiento en curso para esta rutina' });
+      return res.status(409).json({ error: 'Ya tenés un entrenamiento en curso para esta rutina' });
     }
     console.error('start workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
@@ -356,7 +347,9 @@ router.get('/active', async (req, res) => {
       .where(and(eq(workouts.userId, userId), eq(workouts.status, 'in_progress')))
       .orderBy(desc(workouts.startedAt));
 
-    return res.json(await Promise.all(activeWorkouts.map((workout) => loadWorkoutWithDetails(workout.id))));
+    return res.json(
+      await Promise.all(activeWorkouts.map((workout) => loadWorkoutWithDetails(workout.id))),
+    );
   } catch (error) {
     console.error('get active workout error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
@@ -428,10 +421,7 @@ router.put('/:id', async (req, res) => {
           .select({ id: workoutExercises.id })
           .from(workoutExercises)
           .where(
-            and(
-              eq(workoutExercises.id, exercise.id),
-              eq(workoutExercises.workoutId, workoutId),
-            ),
+            and(eq(workoutExercises.id, exercise.id), eq(workoutExercises.workoutId, workoutId)),
           )
           .limit(1);
         if (!ownedExercise) throw new Error('EXERCISE_NOT_FOUND');

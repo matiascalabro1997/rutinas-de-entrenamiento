@@ -345,10 +345,7 @@ export default function RoutineEditorPage() {
 
       {/* Exercise Picker */}
       {showPicker && (
-        <ExercisePicker
-          onSelect={handleAddExercise}
-          onClose={() => setShowPicker(false)}
-        />
+        <ExercisePicker onSelect={handleAddExercise} onClose={() => setShowPicker(false)} />
       )}
     </>
   );

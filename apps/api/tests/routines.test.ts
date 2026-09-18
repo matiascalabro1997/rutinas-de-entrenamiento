@@ -7,8 +7,7 @@ const REGISTER_URL = '/api/auth/register';
 
 function makeAgent(email: string, password = 'password123') {
   const agent = request.agent(app);
-  const setup = () =>
-    agent.post(REGISTER_URL).send({ email, password });
+  const setup = () => agent.post(REGISTER_URL).send({ email, password });
   return { agent, setup };
 }
 
@@ -124,22 +123,20 @@ describe('Rutinas', () => {
     });
 
     it('agrega ejercicios con series a la rutina', async () => {
-      const res = await agentA
-        .put(`/api/routines/${routineId}`)
-        .send({
-          name: 'Original',
-          exercises: [
-            {
-              exerciseId,
-              position: 0,
-              sets: [
-                { setNumber: 1, weight: 80, reps: 8, rir: 2 },
-                { setNumber: 2, weight: 80, reps: 8, rir: 2 },
-                { setNumber: 3, weight: 77.5, reps: 10, rir: 1 },
-              ],
-            },
-          ],
-        });
+      const res = await agentA.put(`/api/routines/${routineId}`).send({
+        name: 'Original',
+        exercises: [
+          {
+            exerciseId,
+            position: 0,
+            sets: [
+              { setNumber: 1, weight: 80, reps: 8, rir: 2 },
+              { setNumber: 2, weight: 80, reps: 8, rir: 2 },
+              { setNumber: 3, weight: 77.5, reps: 10, rir: 1 },
+            ],
+          },
+        ],
+      });
       expect(res.status).toBe(200);
       expect(res.body.exercises.length).toBe(1);
       expect(res.body.exercises[0].sets.length).toBe(3);
@@ -317,9 +314,21 @@ describe('Rutinas', () => {
       await agentA.put(`/api/routines/${routineId}`).send({
         name: 'Orden',
         exercises: [
-          { exerciseId: exId1, position: 0, sets: [{ setNumber: 1, weight: 60, reps: 10, rir: null }] },
-          { exerciseId: exId2, position: 1, sets: [{ setNumber: 1, weight: 40, reps: 12, rir: null }] },
-          { exerciseId: exId3, position: 2, sets: [{ setNumber: 1, weight: 100, reps: 8, rir: null }] },
+          {
+            exerciseId: exId1,
+            position: 0,
+            sets: [{ setNumber: 1, weight: 60, reps: 10, rir: null }],
+          },
+          {
+            exerciseId: exId2,
+            position: 1,
+            sets: [{ setNumber: 1, weight: 40, reps: 12, rir: null }],
+          },
+          {
+            exerciseId: exId3,
+            position: 2,
+            sets: [{ setNumber: 1, weight: 100, reps: 8, rir: null }],
+          },
         ],
       });
     });
@@ -405,9 +414,9 @@ describe('Rutinas', () => {
       expect(reloaded.body.exercises[1].exerciseId).toBe(exId3);
       expect(reloaded.body.exercises[2].exerciseId).toBe(exId1);
       // Las series siguen asociadas al ejercicio correcto
-      expect(parseFloat(reloaded.body.exercises[0].sets[0].weight)).toBe(40);  // B
+      expect(parseFloat(reloaded.body.exercises[0].sets[0].weight)).toBe(40); // B
       expect(parseFloat(reloaded.body.exercises[1].sets[0].weight)).toBe(100); // C
-      expect(parseFloat(reloaded.body.exercises[2].sets[0].weight)).toBe(60);  // A
+      expect(parseFloat(reloaded.body.exercises[2].sets[0].weight)).toBe(60); // A
     });
 
     it('duplicar la rutina conserva el orden de ejercicios', async () => {
@@ -451,8 +460,8 @@ describe('Rutinas', () => {
       expect(res.status).toBe(200);
       // Cada ejercicio conserva su propio peso
       expect(parseFloat(res.body.exercises[0].sets[0].weight)).toBe(100); // C
-      expect(parseFloat(res.body.exercises[1].sets[0].weight)).toBe(40);  // B
-      expect(parseFloat(res.body.exercises[2].sets[0].weight)).toBe(60);  // A
+      expect(parseFloat(res.body.exercises[1].sets[0].weight)).toBe(40); // B
+      expect(parseFloat(res.body.exercises[2].sets[0].weight)).toBe(60); // A
       // Sin duplicados de sort_order
       const positions = res.body.exercises.map((e: any) => e.position);
       expect(new Set(positions).size).toBe(3);

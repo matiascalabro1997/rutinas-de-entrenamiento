@@ -21,11 +21,7 @@ async function getRoutineForUser(routineId: number, userId: number) {
 }
 
 async function loadRoutineWithDetails(routineId: number) {
-  const [routine] = await db
-    .select()
-    .from(routines)
-    .where(eq(routines.id, routineId))
-    .limit(1);
+  const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 
   if (!routine) return null;
 
@@ -151,10 +147,7 @@ router.put('/:id', async (req, res) => {
     // si cualquier actualización de posición falla, se revierten todas.
     await db.transaction(async (tx) => {
       // 1. Actualizar nombre de rutina
-      await tx
-        .update(routines)
-        .set({ name, updatedAt: new Date() })
-        .where(eq(routines.id, id));
+      await tx.update(routines).set({ name, updatedAt: new Date() }).where(eq(routines.id, id));
 
       // 2. Obtener routine_exercises actuales
       const currentREs = await tx
@@ -162,9 +155,7 @@ router.put('/:id', async (req, res) => {
         .from(routineExercises)
         .where(eq(routineExercises.routineId, id));
 
-      const incomingREIds = exList
-        .filter((e) => e.id !== undefined)
-        .map((e) => e.id!);
+      const incomingREIds = exList.filter((e) => e.id !== undefined).map((e) => e.id!);
 
       // 3. Eliminar routine_exercises que ya no están
       for (const re of currentREs) {
@@ -199,9 +190,7 @@ router.put('/:id', async (req, res) => {
           .from(routineSets)
           .where(eq(routineSets.routineExerciseId, reId));
 
-        const incomingSetIds = ex.sets
-          .filter((s) => s.id !== undefined)
-          .map((s) => s.id!);
+        const incomingSetIds = ex.sets.filter((s) => s.id !== undefined).map((s) => s.id!);
 
         // Eliminar sets que ya no están
         for (const s of currentSets) {

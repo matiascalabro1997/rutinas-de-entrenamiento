@@ -12,10 +12,7 @@ import type {
   WorkoutSaveResult,
 } from '@rutinas/shared';
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     ...options,
     credentials: 'include',
@@ -74,8 +71,7 @@ export const api = {
       request<RoutineFull>(`/api/routines/${id}/duplicate`, { method: 'POST' }),
     archive: (id: number) =>
       request<RoutineSummary>(`/api/routines/${id}/archive`, { method: 'PATCH' }),
-    delete: (id: number) =>
-      request<{ ok: boolean }>(`/api/routines/${id}`, { method: 'DELETE' }),
+    delete: (id: number) => request<{ ok: boolean }>(`/api/routines/${id}`, { method: 'DELETE' }),
   },
 
   workouts: {
@@ -91,11 +87,10 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    pause: (id: number) =>
-      request<WorkoutFull>(`/api/workouts/${id}/pause`, { method: 'POST' }),
-    resume: (id: number) =>
-      request<WorkoutFull>(`/api/workouts/${id}/resume`, { method: 'POST' }),
-    finish: (id: number) => request<WorkoutFull>(`/api/workouts/${id}/complete`, { method: 'POST' }),
+    pause: (id: number) => request<WorkoutFull>(`/api/workouts/${id}/pause`, { method: 'POST' }),
+    resume: (id: number) => request<WorkoutFull>(`/api/workouts/${id}/resume`, { method: 'POST' }),
+    finish: (id: number) =>
+      request<WorkoutFull>(`/api/workouts/${id}/complete`, { method: 'POST' }),
   },
 };
 

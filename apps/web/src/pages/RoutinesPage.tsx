@@ -3,11 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, RoutineSummary, WorkoutFull } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
-import {
-  invalidateWorkoutQueries,
-  syncWorkoutQueries,
-  workoutQueryKeys,
-} from '../lib/queryClient';
+import { invalidateWorkoutQueries, syncWorkoutQueries, workoutQueryKeys } from '../lib/queryClient';
 
 export default function RoutinesPage() {
   const navigate = useNavigate();
@@ -64,7 +60,9 @@ export default function RoutinesPage() {
       navigate(`/workouts/${workout.id}`);
     },
     onError: (error) => {
-      setWorkoutError(error instanceof Error ? error.message : 'No se pudo iniciar el entrenamiento');
+      setWorkoutError(
+        error instanceof Error ? error.message : 'No se pudo iniciar el entrenamiento',
+      );
       void invalidateWorkoutQueries(queryClient);
     },
   });
@@ -141,10 +139,7 @@ export default function RoutinesPage() {
         {/* Menú de acciones */}
         {isMenuOpen && (
           <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setActionMenuId(null)}
-            />
+            <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
             <div className="absolute right-3 top-12 z-20 bg-white rounded-2xl shadow-lg border border-gray-100 py-1 min-w-[160px]">
               <button
                 type="button"
@@ -203,9 +198,7 @@ export default function RoutinesPage() {
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="font-bold text-xl text-gray-900">Mis rutinas</h1>
-            {user?.displayName && (
-              <p className="text-xs text-gray-400">{user.displayName}</p>
-            )}
+            {user?.displayName && <p className="text-xs text-gray-400">{user.displayName}</p>}
           </div>
           <button
             type="button"
@@ -233,7 +226,10 @@ export default function RoutinesPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setCreating(false); setNewName(''); }}
+              onClick={() => {
+                setCreating(false);
+                setNewName('');
+              }}
               className="btn-ghost"
             >
               ✕

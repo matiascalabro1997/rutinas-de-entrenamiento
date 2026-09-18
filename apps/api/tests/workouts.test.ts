@@ -127,10 +127,9 @@ describe('Entrenamientos activos', () => {
     expect(paused.body.elapsedSeconds).toBeGreaterThanOrEqual(120);
 
     // Un timestamp viejo no debe afectar un workout pausado al consultar de nuevo.
-    await pool.query(
-      "UPDATE workouts SET updated_at = now() - interval '3 hours' WHERE id = $1",
-      [started.body.id],
-    );
+    await pool.query("UPDATE workouts SET updated_at = now() - interval '3 hours' WHERE id = $1", [
+      started.body.id,
+    ]);
     const stillPaused = await agentA.get(`/api/workouts/${started.body.id}`);
     expect(stillPaused.status).toBe(200);
     expect(stillPaused.body.timerStatus).toBe('paused');
@@ -452,17 +451,19 @@ describe('Entrenamientos activos', () => {
     expect(exercise.sets[0].completed).toBe(false);
     const marked = await agentA.put(`/api/workouts/${workout.id}`).send({
       version: workout.version,
-      exercises: [{
-        id: exercise.id,
-        sets: exercise.sets.map((set: any, index: number) => ({
-          id: set.id,
-          setNumber: set.setNumber,
-          weight: set.weight,
-          reps: set.reps,
-          rir: set.rir,
-          completed: index === 0,
-        })),
-      }],
+      exercises: [
+        {
+          id: exercise.id,
+          sets: exercise.sets.map((set: any, index: number) => ({
+            id: set.id,
+            setNumber: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+            rir: set.rir,
+            completed: index === 0,
+          })),
+        },
+      ],
     });
     expect(marked.status).toBe(200);
 
@@ -474,17 +475,19 @@ describe('Entrenamientos activos', () => {
 
     const unmarked = await agentA.put(`/api/workouts/${workout.id}`).send({
       version: reloaded.body.version,
-      exercises: [{
-        id: reloaded.body.exercises[0].id,
-        sets: reloaded.body.exercises[0].sets.map((set: any) => ({
-          id: set.id,
-          setNumber: set.setNumber,
-          weight: set.weight,
-          reps: set.reps,
-          rir: set.rir,
-          completed: false,
-        })),
-      }],
+      exercises: [
+        {
+          id: reloaded.body.exercises[0].id,
+          sets: reloaded.body.exercises[0].sets.map((set: any) => ({
+            id: set.id,
+            setNumber: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+            rir: set.rir,
+            completed: false,
+          })),
+        },
+      ],
     });
     expect(unmarked.status).toBe(200);
     const afterUnmark = await agentA.get(`/api/workouts/${workout.id}`);
@@ -499,17 +502,19 @@ describe('Entrenamientos activos', () => {
 
     const updated = await agentA.put(`/api/workouts/${workout.id}`).send({
       version: workout.version,
-      exercises: [{
-        id: exercise.id,
-        sets: exercise.sets.map((set: any, index: number) => ({
-          id: set.id,
-          setNumber: set.setNumber,
-          weight: index === 0 ? 95 : set.weight,
-          reps: index === 0 ? 6 : set.reps,
-          rir: index === 0 ? 1 : set.rir,
-          completed: false,
-        })),
-      }],
+      exercises: [
+        {
+          id: exercise.id,
+          sets: exercise.sets.map((set: any, index: number) => ({
+            id: set.id,
+            setNumber: set.setNumber,
+            weight: index === 0 ? 95 : set.weight,
+            reps: index === 0 ? 6 : set.reps,
+            rir: index === 0 ? 1 : set.rir,
+            completed: false,
+          })),
+        },
+      ],
     });
     expect(updated.status).toBe(200);
 
@@ -579,7 +584,9 @@ describe('Entrenamientos activos', () => {
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
 
     const newSession = request.agent(app);
-    const login = await newSession.post('/api/auth/login').send({ email: emailA, password: passwordA });
+    const login = await newSession
+      .post('/api/auth/login')
+      .send({ email: emailA, password: passwordA });
     expect(login.status).toBe(200);
 
     const active = await newSession.get('/api/workouts/active');
@@ -616,17 +623,19 @@ describe('Entrenamientos activos', () => {
 
     const marked = await agentA.put(`/api/workouts/${started.body.id}`).send({
       version: started.body.version,
-      exercises: [{
-        id: exercise.id,
-        sets: exercise.sets.map((set: any, index: number) => ({
-          id: set.id,
-          setNumber: set.setNumber,
-          weight: set.weight,
-          reps: set.reps,
-          rir: set.rir,
-          completed: index === 0,
-        })),
-      }],
+      exercises: [
+        {
+          id: exercise.id,
+          sets: exercise.sets.map((set: any, index: number) => ({
+            id: set.id,
+            setNumber: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+            rir: set.rir,
+            completed: index === 0,
+          })),
+        },
+      ],
     });
     expect(marked.status).toBe(200);
 
@@ -688,17 +697,19 @@ describe('Entrenamientos activos', () => {
       (
         await agentB.put(`/api/workouts/${workout.id}`).send({
           version: workout.version,
-          exercises: [{
-            id: workout.exercises[0].id,
-            sets: workout.exercises[0].sets.map((set: any) => ({
-              id: set.id,
-              setNumber: set.setNumber,
-              weight: set.weight,
-              reps: set.reps,
-              rir: set.rir,
-              completed: true,
-            })),
-          }],
+          exercises: [
+            {
+              id: workout.exercises[0].id,
+              sets: workout.exercises[0].sets.map((set: any) => ({
+                id: set.id,
+                setNumber: set.setNumber,
+                weight: set.weight,
+                reps: set.reps,
+                rir: set.rir,
+                completed: true,
+              })),
+            },
+          ],
         })
       ).status,
     ).toBe(404);
@@ -725,7 +736,9 @@ describe('Entrenamientos activos', () => {
     const exercise = workout.exercises[0];
 
     const secondSession = request.agent(app);
-    const login = await secondSession.post('/api/auth/login').send({ email: emailA, password: passwordA });
+    const login = await secondSession
+      .post('/api/auth/login')
+      .send({ email: emailA, password: passwordA });
     expect(login.status).toBe(200);
 
     const firstSave = await agentA.put(`/api/workouts/${workout.id}`).send({
@@ -778,7 +791,9 @@ describe('Entrenamientos activos', () => {
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
 
     const secondSession = request.agent(app);
-    const login = await secondSession.post('/api/auth/login').send({ email: emailA, password: passwordA });
+    const login = await secondSession
+      .post('/api/auth/login')
+      .send({ email: emailA, password: passwordA });
     expect(login.status).toBe(200);
 
     const completed = await secondSession.post(`/api/workouts/${started.body.id}/complete`);
