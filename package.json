@@ -25,7 +25,8 @@
     "db:seed": "npm run db:seed -w @rutinas/api",
     "db:setup:test": "npm run db:setup:test -w @rutinas/api",
     "test:web": "npm run test -w @rutinas/web",
-    "test:api": "npm run test -w @rutinas/api"
+    "test:api": "npm run test -w @rutinas/api",
+    "test:unit": "npm run build -w @rutinas/shared && npm run test:unit -w @rutinas/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.4",

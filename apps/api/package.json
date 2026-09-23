@@ -14,7 +14,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts",
     "db:setup:test": "node scripts/with-test-env.mjs drizzle-kit push --config drizzle.config.test.ts && node scripts/with-test-env.mjs tsx src/db/seed.ts",
-    "db:migrate:workouts": "node scripts/migrate-workouts.mjs"
+    "db:migrate:workouts": "node scripts/migrate-workouts.mjs",
+    "test:unit": "vitest run --config vitest.unit.config.mts"
   },
   "dependencies": {
     "@rutinas/shared": "*",

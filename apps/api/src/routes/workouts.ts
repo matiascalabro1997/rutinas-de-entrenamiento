@@ -14,6 +14,12 @@ import {
   workouts,
 } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
+import {
+  effectiveElapsedSeconds,
+  pausedTimerValues,
+  resumedTimerValues,
+  completedTimerValues,
+} from '../services/workout-timer';
 
 const router = Router();
 
@@ -61,32 +67,12 @@ async function loadWorkoutWithDetails(workoutId: number) {
   );
 
   const serverNow = new Date();
-  const elapsedSeconds =
-    workout.timerStatus === 'running' && workout.activeStartedAt
-      ? workout.elapsedSeconds +
-        Math.max(0, Math.floor((serverNow.getTime() - workout.activeStartedAt.getTime()) / 1000))
-      : workout.elapsedSeconds;
 
   return {
     ...workout,
-    elapsedSeconds,
+    elapsedSeconds: effectiveElapsedSeconds(workout, serverNow),
     serverNow: serverNow.toISOString(),
     exercises: exercisesWithSets,
-  };
-}
-
-function activeSecondsSince(startedAt: Date | null, now: Date) {
-  if (!startedAt) return 0;
-  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
-}
-
-function pausedTimerValues(workout: typeof workouts.$inferSelect, now: Date) {
-  return {
-    elapsedSeconds: workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now),
-    activeStartedAt: null,
-    timerStatus: 'paused' as const,
-    version: workout.version + 1,
-    updatedAt: now,
   };
 }
 
@@ -145,12 +131,7 @@ async function transitionTimer(workoutId: number, userId: number, action: 'pause
     if (workout.timerStatus === 'running') return;
     await tx
       .update(workouts)
-      .set({
-        activeStartedAt: now,
-        timerStatus: 'running',
-        version: workout.version + 1,
-        updatedAt: now,
-      })
+      .set(resumedTimerValues(workout, now))
       .where(eq(workouts.id, workoutId));
   });
 }
@@ -537,19 +518,9 @@ router.post('/:id/complete', async (req, res) => {
       if (workout.status !== 'in_progress') throw new Error('WORKOUT_COMPLETED');
 
       const now = new Date();
-      const elapsedSeconds =
-        workout.elapsedSeconds + activeSecondsSince(workout.activeStartedAt, now);
       await tx
         .update(workouts)
-        .set({
-          status: 'completed',
-          completedAt: now,
-          elapsedSeconds,
-          activeStartedAt: null,
-          timerStatus: 'completed',
-          version: workout.version + 1,
-          updatedAt: now,
-        })
+        .set(completedTimerValues(workout, now))
         .where(eq(workouts.id, workoutId));
     });
 

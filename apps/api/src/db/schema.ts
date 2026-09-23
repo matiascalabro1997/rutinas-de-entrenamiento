@@ -8,8 +8,10 @@ import {
   numeric,
   index,
   uniqueIndex,
+  json,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+import type { TimerStatus, WorkoutStatus } from '@rutinas/shared';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -129,12 +131,18 @@ export const workouts = pgTable(
       .notNull(),
     routineId: integer('routine_id').references(() => routines.id, { onDelete: 'set null' }),
     name: varchar('name', { length: 255 }).notNull(),
-    status: varchar('status', { length: 20 }).notNull().default('in_progress'),
+    status: varchar('status', { length: 20 })
+      .$type<WorkoutStatus>()
+      .notNull()
+      .default('in_progress'),
     // Tiempo efectivo persistido antes del período activo actual. Nunca se
     // calcula a partir de completedAt - startedAt.
     elapsedSeconds: integer('elapsed_seconds').notNull().default(0),
     activeStartedAt: timestamp('active_started_at'),
-    timerStatus: varchar('timer_status', { length: 20 }).notNull().default('running'),
+    timerStatus: varchar('timer_status', { length: 20 })
+      .$type<TimerStatus>()
+      .notNull()
+      .default('running'),
     version: integer('version').notNull().default(1),
     startedAt: timestamp('started_at').defaultNow().notNull(),
     completedAt: timestamp('completed_at'),
@@ -194,6 +202,30 @@ export const workoutSets = pgTable(
       t.workoutExerciseId,
       t.setNumber,
     ),
+  }),
+);
+
+// ─── Sesiones ─────────────────────────────────────────────────────────────────
+// Esta tabla NO la administra la aplicación: la crea connect-pg-simple al
+// arrancar, por `createTableIfMissing: true`. Se declara acá sólo para que
+// drizzle-kit sepa que existe.
+//
+// Sin esta declaración, `drizzle-kit push` la ve como una tabla sobrante y
+// propone borrarla. Aceptar ese DROP invalidaría todas las sesiones activas y
+// desconectaría a todos los usuarios.
+//
+// La forma refleja el esquema de connect-pg-simple. No agregar columnas ni
+// cambiar tipos: los escribe y los lee esa librería, no este código.
+
+export const sessions = pgTable(
+  'session',
+  {
+    sid: varchar('sid').primaryKey(),
+    sess: json('sess').notNull(),
+    expire: timestamp('expire', { precision: 6 }).notNull(),
+  },
+  (t) => ({
+    expireIdx: index('IDX_session_expire').on(t.expire),
   }),
 );
 
