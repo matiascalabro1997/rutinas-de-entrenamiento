@@ -30,4 +30,15 @@ CREATE ROLE fitness_tracker_test_runner LOGIN PASSWORD 'poner-otra-password';
 -- cualquiera; ser dueño de la base resuelve eso sin abrir permisos de más.
 CREATE DATABASE fitness_tracker_test OWNER fitness_tracker_test_runner;
 
-REVOKE ALL ON DATABASE fitness_tracker FROM fitness_tracker_test_runner;
+-- Aislamiento real entre las dos bases.
+--
+-- Revocar sobre el rol puntual no alcanza: PostgreSQL le da CONNECT a PUBLIC en
+-- toda base nueva, así que el rol seguiría entrando por ahí. Hay que quitarle el
+-- permiso a PUBLIC y devolvérselo sólo a quien corresponde. Los dueños conservan
+-- sus privilegios de forma implícita; los GRANT son explícitos a propósito.
+
+REVOKE ALL ON DATABASE fitness_tracker FROM PUBLIC;
+GRANT CONNECT ON DATABASE fitness_tracker TO fitness_tracker_app;
+
+REVOKE ALL ON DATABASE fitness_tracker_test FROM PUBLIC;
+GRANT CONNECT ON DATABASE fitness_tracker_test TO fitness_tracker_test_runner;
