@@ -8,6 +8,7 @@ import type {
   RoutineSummary,
   UpsertRoutinePayload,
   UpsertWorkoutPayload,
+  WorkoutHistoryPage,
   WorkoutFull,
   WorkoutSaveResult,
 } from '@rutinas/shared';
@@ -81,6 +82,13 @@ export const api = {
         body: JSON.stringify({ routineId }),
       }),
     inProgress: () => request<WorkoutFull[]>('/api/workouts/active'),
+    history: (params: { limit?: number; offset?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.limit !== undefined) query.set('limit', String(params.limit));
+      if (params.offset !== undefined) query.set('offset', String(params.offset));
+      const suffix = query.size > 0 ? `?${query}` : '';
+      return request<WorkoutHistoryPage>(`/api/workouts/history${suffix}`);
+    },
     get: (id: number) => request<WorkoutFull>(`/api/workouts/${id}`),
     update: (id: number, data: UpsertWorkoutPayload) =>
       request<WorkoutSaveResult>(`/api/workouts/${id}`, {
@@ -118,8 +126,10 @@ export type {
   UpsertWorkoutSetPayload,
   WorkoutExerciseFull,
   WorkoutFull,
+  WorkoutHistoryPage,
   WorkoutSaveResult,
   WorkoutSet,
   WorkoutSetIdMapping,
   WorkoutStatus,
+  WorkoutSummary,
 } from '@rutinas/shared';

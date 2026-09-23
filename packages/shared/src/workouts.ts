@@ -92,3 +92,28 @@ export interface WorkoutSaveResult {
   version: number;
   setIdMappings: WorkoutSetIdMapping[];
 }
+
+// ─── Historial ────────────────────────────────────────────────────────────────
+
+/**
+ * Fila del historial. Trae sólo lo que se muestra en la lista; el detalle
+ * completo de un entrenamiento se pide aparte con `GET /api/workouts/:id`.
+ */
+export interface WorkoutSummary {
+  id: number;
+  name: string;
+  completedAt: string;
+  /** Tiempo efectivo, sin las pausas. */
+  elapsedSeconds: number;
+  exerciseCount: number;
+  completedSets: number;
+  totalSets: number;
+  /** Suma de peso x reps de las series marcadas como realizadas. */
+  totalVolume: number;
+}
+
+export interface WorkoutHistoryPage {
+  items: WorkoutSummary[];
+  /** Hay más páginas después de esta. */
+  hasMore: boolean;
+}

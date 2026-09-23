@@ -200,13 +200,22 @@ export default function RoutinesPage() {
             <h1 className="font-bold text-xl text-gray-900">Mis rutinas</h1>
             {user?.displayName && <p className="text-xs text-gray-400">{user.displayName}</p>}
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm text-gray-500 active:text-gray-700"
-          >
-            Salir
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/historial')}
+              className="text-sm font-medium text-brand-600 active:text-brand-700"
+            >
+              Historial
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-sm text-gray-500 active:text-gray-700"
+            >
+              Salir
+            </button>
+          </div>
         </div>
       </div>
 

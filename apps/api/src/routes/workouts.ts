@@ -20,6 +20,11 @@ import {
   resumedTimerValues,
   completedTimerValues,
 } from '../services/workout-timer';
+import {
+  HISTORY_MAX_PAGE_SIZE,
+  HISTORY_PAGE_SIZE,
+  listCompletedWorkouts,
+} from '../services/workout-history';
 
 const router = Router();
 
@@ -338,6 +343,33 @@ router.get('/active', async (req, res) => {
 });
 
 // GET /api/workouts/:id
+// GET /api/workouts/history — entrenamientos terminados, del más nuevo al más viejo.
+// Va declarado antes de '/:id' porque si no Express lo toma como un id.
+router.get('/history', async (req, res) => {
+  const { limit, offset } = req.query;
+
+  const parsedLimit = limit === undefined ? HISTORY_PAGE_SIZE : Number(limit);
+  const parsedOffset = offset === undefined ? 0 : Number(offset);
+
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > HISTORY_MAX_PAGE_SIZE) {
+    return res.status(400).json({ error: 'limit inválido' });
+  }
+  if (!Number.isInteger(parsedOffset) || parsedOffset < 0) {
+    return res.status(400).json({ error: 'offset inválido' });
+  }
+
+  try {
+    const page = await listCompletedWorkouts(req.session.userId!, {
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
+    return res.json(page);
+  } catch (error) {
+    console.error('get workout history error:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const workoutId = Number(req.params.id);
   if (!Number.isInteger(workoutId) || workoutId <= 0) {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   api,
@@ -93,7 +93,15 @@ function completedSetsFor(workout: WorkoutFull) {
   );
 }
 
-function FinishedWorkout({ workout, onBack }: { workout: WorkoutFull; onBack: () => void }) {
+function FinishedWorkout({
+  workout,
+  onBack,
+  backLabel,
+}: {
+  workout: WorkoutFull;
+  onBack: () => void;
+  backLabel: string;
+}) {
   const totalSets = workout.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
   const completedSets = completedSetsFor(workout);
 
@@ -101,7 +109,7 @@ function FinishedWorkout({ workout, onBack }: { workout: WorkoutFull; onBack: ()
     <main className="min-h-screen bg-gray-50 px-4 py-6">
       <div className="mx-auto max-w-lg">
         <button type="button" onClick={onBack} className="btn-ghost -ml-2 mb-5 px-2 text-sm">
-          Volver a rutinas
+          {backLabel}
         </button>
         <div className="card p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
@@ -134,10 +142,18 @@ function FinishedWorkout({ workout, onBack }: { workout: WorkoutFull; onBack: ()
                 {exercise.sets.map((set) => (
                   <div key={set.id} className="flex items-center justify-between py-3 text-sm">
                     <span className="text-gray-600">Serie {set.setNumber}</span>
+                    {/* Al revisar un entrenamiento pasado, lo que se viene a buscar
+                        es qué se levantó, no si la serie figura como hecha. */}
                     <span
-                      className={set.completed ? 'font-semibold text-emerald-700' : 'text-gray-400'}
+                      className={
+                        set.completed ? 'font-semibold text-gray-900' : 'text-gray-300 line-through'
+                      }
                     >
-                      {set.completed ? 'Realizada' : 'Pendiente'}
+                      {Number(set.weight) > 0 ? `${Number(set.weight)} kg x ` : ''}
+                      {set.reps} reps
+                      {set.rir !== null && (
+                        <span className="ml-2 font-normal text-gray-400">RIR {set.rir}</span>
+                      )}
                     </span>
                   </div>
                 ))}
@@ -174,6 +190,7 @@ function SetMetricField({ label, children }: { label: string; children: React.Re
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation() as { state?: { from?: string } };
   const queryClient = useQueryClient();
   const workoutId = Number(id);
   const [exercises, setExercises] = useState<LocalExercise[]>([]);
@@ -573,7 +590,14 @@ export default function WorkoutPage() {
 
   const workout = workoutQuery.data;
   if (workout.status !== 'in_progress') {
-    return <FinishedWorkout workout={workout} onBack={() => navigate('/routines')} />;
+    const cameFromHistory = location.state?.from === 'history';
+    return (
+      <FinishedWorkout
+        workout={workout}
+        backLabel={cameFromHistory ? '← Historial' : 'Volver a rutinas'}
+        onBack={() => navigate(cameFromHistory ? '/historial' : '/routines')}
+      />
+    );
   }
   const title = 'name' in workout && workout.name ? workout.name : 'Entrenamiento activo';
   const serverAlignedNow = clockNowMs - clockOffsetRef.current;
