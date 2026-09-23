@@ -90,6 +90,18 @@ const connectionString = resolveDatabaseConnectionString();
 
 export const pool = new Pool({
   connectionString,
+  // Fuerza la sesión de PostgreSQL a UTC.
+  //
+  // Las columnas del schema son `timestamp` sin zona horaria, y los dos lados
+  // que las tocan no las interpretan igual: Drizzle asume UTC, mientras que
+  // PostgreSQL usa la zona de la sesión al evaluar now(). Con una sesión en
+  // horario local, todo lo que escribe la base —las columnas con defaultNow(),
+  // como started_at o created_at— quedaba desfasado respecto de lo que escribe
+  // la aplicación, por exactamente el offset UTC del server.
+  //
+  // En Replit nunca se notó porque ahí la sesión ya era UTC. Con la sesión
+  // fijada acá, ambos lados coinciden sin depender de dónde corra el proceso.
+  options: '-c timezone=UTC',
 });
 
 export const db = drizzle(pool, { schema });
