@@ -97,7 +97,7 @@ describe('Entrenamientos activos', () => {
 
     // Simula una reapertura después de salir de la aplicación sin pausar.
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '95 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '95.5 seconds' WHERE id = $1",
       [started.body.id],
     );
 
@@ -112,12 +112,24 @@ describe('Entrenamientos activos', () => {
     expect(recovered.body[0].elapsedSeconds).toBeGreaterThanOrEqual(95);
   });
 
+  // Los intervalos llevan medio segundo de más a propósito.
+  //
+  // Estas marcas de tiempo las escribe PostgreSQL con now(), pero el server las
+  // compara contra el reloj de Node. En Windows, Date.now() tiene menos
+  // resolución y queda unos milisegundos atrás del reloj de PostgreSQL; con un
+  // intervalo entero, Math.floor convierte esos milisegundos en un segundo
+  // entero perdido y el test falla una de cada tres veces.
+  //
+  // El medio segundo no cambia el valor entero esperado —floor lo descarta—
+  // pero saca a la aserción del filo exacto del segundo. En uso real el desfase
+  // no existe: activeStartedAt lo escribe y lo lee siempre el reloj de Node.
+
   it('acumula períodos activos, no cuenta una pausa y congela el tiempo al finalizar', async () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
 
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '120 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '120.5 seconds' WHERE id = $1",
       [started.body.id],
     );
     const paused = await agentA.post(`/api/workouts/${started.body.id}/pause`);
@@ -139,7 +151,7 @@ describe('Entrenamientos activos', () => {
     expect(resumed.status).toBe(200);
     expect(resumed.body.timerStatus).toBe('running');
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '35 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '35.5 seconds' WHERE id = $1",
       [started.body.id],
     );
 
@@ -166,7 +178,7 @@ describe('Entrenamientos activos', () => {
     const routineB = await createRoutineWithSets(agentA);
     const first = await agentA.post('/api/workouts').send({ routineId: routineA.id });
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '40 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '40.5 seconds' WHERE id = $1",
       [first.body.id],
     );
 
@@ -328,7 +340,7 @@ describe('Entrenamientos activos', () => {
     const routine = await createRoutineWithSets(agentA);
     const started = await agentA.post('/api/workouts').send({ routineId: routine.id });
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '75 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '75.5 seconds' WHERE id = $1",
       [started.body.id],
     );
 
@@ -364,7 +376,7 @@ describe('Entrenamientos activos', () => {
     const routine = await createRoutineWithSets(agentA);
     const first = await agentA.post('/api/workouts').send({ routineId: routine.id });
     await pool.query(
-      "UPDATE workouts SET active_started_at = now() - interval '45 seconds' WHERE id = $1",
+      "UPDATE workouts SET active_started_at = now() - interval '45.5 seconds' WHERE id = $1",
       [first.body.id],
     );
 
