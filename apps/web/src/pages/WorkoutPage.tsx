@@ -207,17 +207,25 @@ function FinishedWorkout({
                   <div key={set.id} className="flex items-center justify-between py-3 text-sm">
                     <span className="text-gray-600">Serie {set.setNumber}</span>
                     {/* Al revisar un entrenamiento pasado, lo que se viene a buscar
-                        es qué se levantó, no si la serie figura como hecha. */}
-                    <span
-                      className={
-                        set.completed ? 'font-semibold text-gray-900' : 'text-gray-300 line-through'
-                      }
-                    >
-                      {Number(set.weight) > 0 ? `${Number(set.weight)} kg x ` : ''}
-                      {set.reps} reps
-                      {set.rir !== null && (
-                        <span className="ml-2 font-normal text-gray-400">RIR {set.rir}</span>
+                        es qué se levantó, no si la serie figura como hecha.
+                        Las que quedaron sin hacer se marcan con una etiqueta y no
+                        tachadas: un tachado se lee como "anulado", y acá el dato
+                        sigue siendo válido, sólo que planificado y no cumplido. */}
+                    <span className="flex items-center gap-2">
+                      {!set.completed && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                          sin hacer
+                        </span>
                       )}
+                      <span
+                        className={set.completed ? 'font-semibold text-gray-900' : 'text-gray-400'}
+                      >
+                        {Number(set.weight) > 0 ? `${Number(set.weight)} kg x ` : ''}
+                        {set.reps} reps
+                        {set.rir !== null && (
+                          <span className="ml-2 font-normal text-gray-400">RIR {set.rir}</span>
+                        )}
+                      </span>
                     </span>
                   </div>
                 ))}
