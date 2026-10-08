@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   api,
+  PreviousPerformance,
+  PreviousSet,
   UpsertWorkoutExercisePayload,
   WorkoutExerciseFull,
   WorkoutFull,
@@ -23,6 +25,8 @@ type LocalSet = {
 
 type LocalExercise = {
   id: number;
+  /** Ejercicio del catálogo; es la clave para cruzar con el rendimiento anterior. */
+  exerciseId: number | null;
   exerciseName: string;
   muscleGroupName?: string;
   isBodyweight: boolean;
@@ -31,9 +35,69 @@ type LocalExercise = {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+/** "hace 4 días", "ayer", "hoy" — la distancia importa más que la fecha exacta. */
+function relativeDay(iso: string) {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(new Date(iso))) / 86_400_000);
+
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 7) return `hace ${days} días`;
+  if (days < 14) return 'hace una semana';
+  if (days < 60) return `hace ${Math.round(days / 7)} semanas`;
+  return `hace ${Math.round(days / 30)} meses`;
+}
+
+/**
+ * Resume las series anteriores en una línea corta.
+ *
+ * Agrupa las iguales consecutivas: "3 x 80 kg x 10" en vez de repetir lo mismo
+ * tres veces. Con pirámides o series descendentes el detalle sí importa, así
+ * que esas se listan, pero agrupadas igual donde se repiten:
+ * "2 x 80 kg x 10 · 75 kg x 10".
+ *
+ * La línea se lee de reojo entre serie y serie, con el celular en una mano.
+ */
+function summarizePrevious(sets: PreviousSet[]) {
+  const formatted = sets.map((set) => {
+    const weight = Number(set.weight);
+    return weight > 0 ? `${weight} kg x ${set.reps}` : `${set.reps} reps`;
+  });
+
+  const groups: Array<{ text: string; count: number }> = [];
+  for (const text of formatted) {
+    const last = groups[groups.length - 1];
+    if (last && last.text === text) last.count += 1;
+    else groups.push({ text, count: 1 });
+  }
+
+  return groups
+    .map((group) => (group.count > 1 ? `${group.count} x ${group.text}` : group.text))
+    .join(' · ');
+}
+
+/**
+ * Dos renglones en vez de uno: la etiqueta y el cuándo arriba, en chico, y los
+ * pesos abajo en grande. En un celular la línea única se partía por la mitad y
+ * el dato importante quedaba mezclado con la fecha.
+ */
+function PreviousPerformanceLine({ previous }: { previous: PreviousPerformance }) {
+  return (
+    <div className="mt-2 rounded-xl bg-brand-50 px-3 py-2">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-brand-600">
+        La última vez · {relativeDay(previous.completedAt)}
+      </p>
+      <p className="mt-0.5 text-sm font-semibold text-brand-900">
+        {summarizePrevious(previous.sets)}
+      </p>
+    </div>
+  );
+}
+
 function parseExercise(exercise: WorkoutExerciseFull): LocalExercise {
   return {
     id: exercise.id,
+    exerciseId: exercise.exerciseId,
     exerciseName: exercise.exerciseName,
     muscleGroupName: exercise.muscleGroupName,
     isBodyweight: exercise.isBodyweight,
@@ -223,6 +287,19 @@ export default function WorkoutPage() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: 'always',
   });
+
+  // El rendimiento anterior no cambia durante la sesión: se consulta una vez y
+  // se cachea. Va aparte del workout para que un fallo acá no impida entrenar.
+  const previousQuery = useQuery({
+    queryKey: ['workouts', workoutId, 'previous'],
+    queryFn: () => api.workouts.previous(workoutId),
+    enabled: Number.isFinite(workoutId),
+    staleTime: Infinity,
+  });
+
+  const previousByExercise = new Map<number, PreviousPerformance>(
+    (previousQuery.data ?? []).map((item) => [item.exerciseId, item]),
+  );
 
   useEffect(() => {
     const refreshedWorkout = workoutQuery.data;
@@ -701,6 +778,11 @@ export default function WorkoutPage() {
                 <h2 className="mt-1 text-lg font-bold text-gray-900">{exercise.exerciseName}</h2>
                 {exercise.muscleGroupName && (
                   <p className="mt-0.5 text-xs text-gray-500">{exercise.muscleGroupName}</p>
+                )}
+                {exercise.exerciseId !== null && previousByExercise.has(exercise.exerciseId) && (
+                  <PreviousPerformanceLine
+                    previous={previousByExercise.get(exercise.exerciseId)!}
+                  />
                 )}
               </div>
               <div className="px-3">

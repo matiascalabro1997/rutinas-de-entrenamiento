@@ -25,6 +25,7 @@ import {
   HISTORY_PAGE_SIZE,
   listCompletedWorkouts,
 } from '../services/workout-history';
+import { findPreviousPerformances } from '../services/previous-performance';
 
 const router = Router();
 
@@ -366,6 +367,40 @@ router.get('/history', async (req, res) => {
     return res.json(page);
   } catch (error) {
     console.error('get workout history error:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/workouts/:id/previous — qué se hizo la última vez con cada ejercicio
+// de este entrenamiento. Va antes de '/:id' por el orden de matcheo de Express.
+router.get('/:id/previous', async (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    const userId = req.session.userId!;
+    const workout = await getWorkoutForUser(workoutId, userId);
+    if (!workout) return res.status(404).json({ error: 'Entrenamiento no encontrado' });
+
+    const exerciseList = await db
+      .select({ exerciseId: workoutExercises.exerciseId })
+      .from(workoutExercises)
+      .where(eq(workoutExercises.workoutId, workoutId));
+
+    // Los snapshots cuyo ejercicio del catálogo fue borrado no se pueden cruzar.
+    const exerciseIds = exerciseList
+      .map((row) => row.exerciseId)
+      .filter((id): id is number => id !== null);
+
+    const previous = await findPreviousPerformances(userId, exerciseIds, {
+      // El entrenamiento en curso nunca es su propia referencia.
+      excludeWorkoutId: workoutId,
+    });
+    return res.json(previous);
+  } catch (error) {
+    console.error('get previous performance error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

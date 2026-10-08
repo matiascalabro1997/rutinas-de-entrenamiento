@@ -8,6 +8,7 @@ import type {
   RoutineSummary,
   UpsertRoutinePayload,
   UpsertWorkoutPayload,
+  PreviousPerformance,
   WorkoutHistoryPage,
   WorkoutFull,
   WorkoutSaveResult,
@@ -90,6 +91,7 @@ export const api = {
       return request<WorkoutHistoryPage>(`/api/workouts/history${suffix}`);
     },
     get: (id: number) => request<WorkoutFull>(`/api/workouts/${id}`),
+    previous: (id: number) => request<PreviousPerformance[]>(`/api/workouts/${id}/previous`),
     update: (id: number, data: UpsertWorkoutPayload) =>
       request<WorkoutSaveResult>(`/api/workouts/${id}`, {
         method: 'PUT',
@@ -129,6 +131,8 @@ export type {
   WorkoutHistoryPage,
   WorkoutSaveResult,
   WorkoutSet,
+  PreviousPerformance,
+  PreviousSet,
   WorkoutSetIdMapping,
   WorkoutStatus,
   WorkoutSummary,

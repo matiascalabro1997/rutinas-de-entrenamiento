@@ -117,3 +117,27 @@ export interface WorkoutHistoryPage {
   /** Hay más páginas después de esta. */
   hasMore: boolean;
 }
+
+// ─── Rendimiento anterior ─────────────────────────────────────────────────────
+
+/** Una serie realizada en el entrenamiento anterior de un ejercicio. */
+export interface PreviousSet {
+  setNumber: number;
+  /** PostgreSQL serializa NUMERIC como string (e.g. "80.00"). */
+  weight: string;
+  reps: number;
+  rir: number | null;
+}
+
+/**
+ * Qué se hizo la última vez con un ejercicio, para mostrarlo mientras se
+ * entrena. Sólo incluye series efectivamente realizadas: una sesión donde el
+ * ejercicio quedó sin marcar no sirve como referencia.
+ */
+export interface PreviousPerformance {
+  /** Id del ejercicio del catálogo. Es la clave para cruzarlo con el workout actual. */
+  exerciseId: number;
+  workoutId: number;
+  completedAt: string;
+  sets: PreviousSet[];
+}
