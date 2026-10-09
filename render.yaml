@@ -1,0 +1,36 @@
+# Blueprint de Render: describe el servicio para no configurarlo a mano en la
+# interfaz, donde es fácil equivocarse en un comando y perder media hora.
+services:
+  - type: web
+    name: rutinas-de-entrenamiento
+    runtime: node
+    plan: free
+    region: oregon
+
+    # npm ci respeta el lockfile; npm install podría resolver versiones
+    # distintas a las probadas acá.
+    #
+    # --include=dev es obligatorio: con NODE_ENV=production (más abajo) npm
+    # omite las devDependencies, y Vite y TypeScript están ahí. Sin esta bandera
+    # el build muere con "vite: not found".
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+
+    # Render consulta esto para saber si la instancia está viva. Pega contra la
+    # base, así que un proceso que no llega a PostgreSQL se reporta caído en vez
+    # de quedar sirviendo errores.
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # La app corre detrás del proxy de Render; sin esto las cookies `secure`
+      # no se envían nunca y no se puede iniciar sesión.
+      - key: TRUST_PROXY
+        value: 'true'
+      # Render lo genera solo. Nunca pasa por el repo.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Se completa a mano con la cadena de conexión de Neon.
+      - key: DATABASE_URL
+        sync: false
