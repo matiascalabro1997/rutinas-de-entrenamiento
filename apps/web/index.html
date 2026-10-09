@@ -2,13 +2,24 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-    <title>Fitness Tracker</title>
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>"
+    <!-- viewport-fit=cover para que el fondo llegue bajo la barra de gestos del
+         celular; sin esto queda una franja blanca al instalarla. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
     />
+    <title>Rutinas de entrenamiento</title>
+    <meta name="description" content="Armá tus rutinas y registrá tus entrenamientos." />
+
+    <!-- Pinta la barra de estado del color de la app al abrirla instalada. -->
+    <meta name="theme-color" content="#4f46e5" />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!-- iOS ignora el manifest para el ícono: usa este. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Rutinas" />
   </head>
   <body>
     <div id="root"></div>

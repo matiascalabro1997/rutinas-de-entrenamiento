@@ -9,3 +9,6 @@ coverage/
 
 # Bootstrap de las bases con credenciales reales
 apps/api/scripts/create-databases.local.sql
+
+# Service worker que vite-plugin-pwa genera en desarrollo
+apps/web/dev-dist/

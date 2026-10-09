@@ -3,3 +3,6 @@ dist/
 drizzle/
 package-lock.json
 docs/legacy/
+
+# Service worker de desarrollo, generado por vite-plugin-pwa
+apps/web/dev-dist/
