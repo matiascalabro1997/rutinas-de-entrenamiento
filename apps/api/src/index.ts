@@ -11,7 +11,10 @@ import workoutsRoutes from './routes/workouts';
 
 const PgSession = connectPgSimple(session);
 const app = express();
-const PORT = process.env.SERVER_PORT || 3001;
+// PORT lo inyectan los servicios de hosting y manda sobre todo lo demás; sin
+// leerlo, el deploy falla con "no se detectaron puertos abiertos".
+// SERVER_PORT queda para desarrollo local.
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 const IS_TEST = process.env.NODE_ENV === 'test';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
@@ -67,6 +70,19 @@ app.use(
 );
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
+
+// GET /api/health — lo consultan los servicios de hosting para saber si la
+// instancia está viva. Toca la base a propósito: un proceso que responde pero
+// no llega a PostgreSQL no sirve de nada, y conviene que el host lo note.
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    return res.json({ status: 'ok', database: 'ok' });
+  } catch (error) {
+    console.error('health check error:', error);
+    return res.status(503).json({ status: 'degraded', database: 'error' });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/routines', routinesRoutes);
